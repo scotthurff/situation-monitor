@@ -19,6 +19,7 @@ function getEnvVar(key: string): string {
  */
 export const FINNHUB_API_KEY = getEnvVar('VITE_FINNHUB_API_KEY');
 export const FRED_API_KEY = getEnvVar('VITE_FRED_API_KEY');
+export const CONGRESS_API_KEY = getEnvVar('VITE_CONGRESS_API_KEY');
 
 /**
  * API Base URLs
@@ -27,7 +28,11 @@ export const API_URLS = {
 	finnhub: 'https://finnhub.io/api/v1',
 	fred: 'https://api.stlouisfed.org/fred',
 	coingecko: 'https://api.coingecko.com/api/v3',
-	polymarket: 'https://gamma-api.polymarket.com'
+	polymarket: 'https://gamma-api.polymarket.com',
+	kalshi: 'https://api.elections.kalshi.com/trade-api/v2',
+	usaspending: 'https://api.usaspending.gov/api/v2',
+	congress: 'https://api.congress.gov/v3',
+	feargreed: 'https://api.alternative.me/fng'
 } as const;
 
 /**

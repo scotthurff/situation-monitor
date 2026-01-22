@@ -13,6 +13,7 @@ export {
 export {
 	FINNHUB_API_KEY,
 	FRED_API_KEY,
+	CONGRESS_API_KEY,
 	API_URLS,
 	CORS_PROXIES,
 	fetchWithProxy,

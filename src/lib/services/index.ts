@@ -19,3 +19,9 @@ export {
 	type ServiceClientConfig,
 	type RequestOptions
 } from './client';
+export {
+	RateLimiter,
+	rateLimiters,
+	getAllRateLimiterStats,
+	type RateLimiterConfig
+} from './rate-limiter';
