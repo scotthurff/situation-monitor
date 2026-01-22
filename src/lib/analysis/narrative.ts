@@ -65,10 +65,11 @@ function extractPhrases(text: string): string[] {
 }
 
 /**
- * Check if word is significant (not a stop word)
+ * Check if word is significant (not a stop word or technical artifact)
  */
 function isSignificantWord(word: string): boolean {
 	const stopWords = new Set([
+		// Common stop words
 		'the',
 		'and',
 		'for',
@@ -115,7 +116,37 @@ function isSignificantWord(word: string): boolean {
 		'their',
 		'there',
 		'these',
-		'those'
+		'those',
+		// HTML/URL artifacts that leak through from RSS descriptions
+		'href',
+		'https',
+		'http',
+		'www',
+		'html',
+		'link',
+		'click',
+		'here',
+		'read',
+		'more',
+		'span',
+		'class',
+		'style',
+		'width',
+		'height',
+		'target',
+		'blank',
+		'noopener',
+		'noreferrer',
+		'continue',
+		'reading',
+		'article',
+		'source',
+		'image',
+		'video',
+		'photo',
+		'caption',
+		'embed',
+		'iframe'
 	]);
 	return !stopWords.has(word) && word.length > 3;
 }
@@ -198,6 +229,11 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 			trajectory = 'stable';
 		}
 
+		// Sort items by date (most recent first) and limit to 10
+		const sortedItems = [...data.items]
+			.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())
+			.slice(0, 10);
+
 		narratives.push({
 			id: generateId(),
 			topic: phrase,
@@ -206,7 +242,8 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 			sources: Array.from(data.sources),
 			firstSeen: data.firstSeen,
 			lastSeen: data.lastSeen,
-			trajectory
+			trajectory,
+			items: sortedItems
 		});
 	}
 

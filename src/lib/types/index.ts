@@ -132,6 +132,7 @@ export interface Narrative {
 	firstSeen: Date;
 	lastSeen: Date;
 	trajectory: 'rising' | 'stable' | 'falling';
+	items: NewsItem[]; // Related news items driving this narrative
 }
 
 // Main character (entity prominence)
