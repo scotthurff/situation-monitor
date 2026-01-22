@@ -1,33 +1,21 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Panel } from '$lib/components/common';
-	import { TREASURY_YIELDS } from '$lib/config/markets';
+	import { fetchTreasuryYields } from '$lib/api/fred';
+	import type { YieldCurvePoint } from '$lib/types';
 
-	interface YieldData {
-		maturity: string;
-		rate: number;
-		change: number;
-	}
-
-	// Mock data - will be replaced with real FRED API data
-	let yields = $state<YieldData[]>([
-		{ maturity: '1M', rate: 5.32, change: -0.02 },
-		{ maturity: '3M', rate: 5.28, change: -0.01 },
-		{ maturity: '6M', rate: 5.15, change: -0.03 },
-		{ maturity: '1Y', rate: 4.89, change: -0.05 },
-		{ maturity: '2Y', rate: 4.42, change: -0.08 },
-		{ maturity: '5Y', rate: 4.18, change: -0.06 },
-		{ maturity: '10Y', rate: 4.28, change: -0.04 },
-		{ maturity: '30Y', rate: 4.52, change: -0.02 }
-	]);
-
-	let isLoading = $state(false);
+	let yields = $state<YieldCurvePoint[]>([]);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	// Derived values
-	const spread10Y2Y = $derived(
-		yields.find((y) => y.maturity === '10Y')!.rate - yields.find((y) => y.maturity === '2Y')!.rate
-	);
-	const isInverted = $derived(spread10Y2Y < 0);
+	const spread10Y2Y = $derived(() => {
+		const y10 = yields.find((y) => y.maturity === '10Y');
+		const y2 = yields.find((y) => y.maturity === '2Y');
+		if (!y10 || !y2) return 0;
+		return y10.rate - y2.rate;
+	});
+	const isInverted = $derived(spread10Y2Y() < 0);
 
 	function formatRate(rate: number): string {
 		return rate.toFixed(2) + '%';
@@ -37,12 +25,28 @@
 		const sign = change >= 0 ? '+' : '';
 		return sign + change.toFixed(2);
 	}
+
+	async function loadYields() {
+		isLoading = true;
+		error = null;
+		try {
+			yields = await fetchTreasuryYields();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load yields';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	onMount(() => {
+		loadYields();
+	});
 </script>
 
 {#snippet header()}
 	<div class="text-xs">
 		<span class={isInverted ? 'text-danger' : 'text-success'}>
-			10Y-2Y: {formatChange(spread10Y2Y)} {isInverted ? '(Inverted)' : ''}
+			10Y-2Y: {formatChange(spread10Y2Y())} {isInverted ? '(Inverted)' : ''}
 		</span>
 	</div>
 {/snippet}
@@ -65,24 +69,26 @@
 	</div>
 
 	<!-- Mini Yield Curve Visualization -->
-	<div class="yield-curve mt-3 pt-3 border-t border-border">
-		<div class="text-xs text-muted mb-2">Yield Curve</div>
-		<div class="curve-container">
-			{#each yields as yield_item, i}
-				<div
-					class="curve-bar"
-					style="height: {(yield_item.rate / 6) * 100}%"
-					title="{yield_item.maturity}: {formatRate(yield_item.rate)}"
-				></div>
-			{/each}
+	{#if yields.length > 0}
+		<div class="yield-curve mt-3 pt-3 border-t border-border">
+			<div class="text-xs text-muted mb-2">Yield Curve</div>
+			<div class="curve-container">
+				{#each yields as yield_item, i}
+					<div
+						class="curve-bar"
+						style="height: {(yield_item.rate / 6) * 100}%"
+						title="{yield_item.maturity}: {formatRate(yield_item.rate)}"
+					></div>
+				{/each}
+			</div>
+			<div class="curve-labels">
+				<span>1M</span>
+				<span>2Y</span>
+				<span>10Y</span>
+				<span>30Y</span>
+			</div>
 		</div>
-		<div class="curve-labels">
-			<span>1M</span>
-			<span>2Y</span>
-			<span>10Y</span>
-			<span>30Y</span>
-		</div>
-	</div>
+	{/if}
 </Panel>
 
 <style>
@@ -148,5 +154,13 @@
 		font-size: 0.6rem;
 		color: var(--text-muted);
 		margin-top: 0.25rem;
+	}
+
+	.text-danger {
+		color: #ff4757;
+	}
+
+	.text-success {
+		color: #2ed573;
 	}
 </style>
