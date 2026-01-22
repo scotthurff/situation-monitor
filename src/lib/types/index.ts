@@ -56,6 +56,7 @@ export interface CryptoData {
 	marketCap: number;
 	volume24h: number;
 	lastUpdated: Date;
+	sparkline?: number[];
 }
 
 // Commodity data
@@ -67,6 +68,37 @@ export interface CommodityData {
 	changePercent: number;
 	unit: string;
 	lastUpdated: Date;
+}
+
+// Sector performance for heatmap
+export interface SectorPerformance {
+	symbol: string;
+	name: string;
+	price: number;
+	change: number;
+	changePercent: number;
+}
+
+// Government contract
+export interface GovContract {
+	id: string;
+	agency: string;
+	vendor: string;
+	value: number;
+	description: string;
+	awardDate: Date;
+	type: 'contract' | 'grant' | 'modification';
+}
+
+// Layoff announcement
+export interface Layoff {
+	id: string;
+	company: string;
+	count: number;
+	location?: string;
+	sector: string;
+	date: Date;
+	source: string;
 }
 
 // Polymarket prediction
@@ -112,14 +144,26 @@ export interface MainCharacter {
 	lastMentioned: Date;
 }
 
+// World leader news item
+export interface LeaderNews {
+	source: string;
+	title: string;
+	link: string;
+	pubDate: string;
+}
+
 // World leader
 export interface WorldLeader {
+	id: string;
 	name: string;
 	title: string;
 	country: string;
-	flagEmoji: string;
-	inOffice: boolean;
-	recentNews?: NewsItem[];
+	flag: string;
+	keywords: string[];
+	since: string;
+	party: string;
+	focus?: string[];
+	news?: LeaderNews[];
 }
 
 // Intel source
@@ -155,6 +199,7 @@ export interface PanelConfig {
 export interface AppSettings {
 	theme: 'dark' | 'light';
 	refreshInterval: number;
+	autoRefreshEnabled: boolean;
 	enableNotifications: boolean;
 	enableSounds: boolean;
 	panels: PanelConfig[];

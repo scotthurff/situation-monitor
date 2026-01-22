@@ -70,7 +70,7 @@
 	}
 
 	.news-title {
-		font-size: 0.875rem;
+		font-size: 0.7rem;
 		color: var(--text-primary);
 		transition: color 0.15s;
 		line-height: 1.4;

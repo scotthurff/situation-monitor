@@ -12,6 +12,7 @@ const STORAGE_KEY = 'situation-monitor-settings';
 const defaultSettings: AppSettings = {
 	theme: 'dark',
 	refreshInterval: 60000, // 1 minute
+	autoRefreshEnabled: true,
 	enableNotifications: true,
 	enableSounds: false,
 	panels: PANELS.map((p) => ({
@@ -152,6 +153,9 @@ export const settingsStore = {
 	},
 	get refreshInterval() {
 		return settings.refreshInterval;
+	},
+	get autoRefreshEnabled() {
+		return settings.autoRefreshEnabled;
 	},
 	update,
 	togglePanel,

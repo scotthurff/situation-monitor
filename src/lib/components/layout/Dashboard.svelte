@@ -3,17 +3,32 @@
 	import { refreshStore, settingsStore } from '$lib/stores';
 	import { Header } from '$lib/components/layout';
 	import {
+		MapPanel,
 		NewsPanel,
 		MarketsPanel,
 		CryptoPanel,
 		CommoditiesPanel,
 		AlertsPanel,
-		IntelPanel
+		IntelPanel,
+		USPoliticsPanel,
+		CourtCasesPanel,
+		CongressPanel,
+		WorldLeadersPanel,
+		PolymarketPanel,
+		SectorHeatmapPanel,
+		MainCharacterPanel,
+		GovContractsPanel,
+		LayoffsPanel
 	} from '$lib/components/panels';
 
 	onMount(() => {
-		// Start auto-refresh
-		refreshStore.startAutoRefresh();
+		// Start auto-refresh if enabled
+		if (settingsStore.autoRefreshEnabled) {
+			refreshStore.startAutoRefresh();
+		} else {
+			// Still do initial refresh even if auto-refresh is disabled
+			refreshStore.refresh();
+		}
 
 		return () => {
 			refreshStore.stopAutoRefresh();
@@ -25,25 +40,78 @@
 	<Header />
 
 	<main class="dashboard-main">
-		<!-- Left Column: News -->
-		<div class="dashboard-col col-news">
-			<NewsPanel limit={50} />
+		<!-- Map Panel - Full Width -->
+		<div class="map-section">
+			<MapPanel />
 		</div>
 
-		<!-- Center Column: Markets -->
-		<div class="dashboard-col col-markets">
-			<div class="panel-stack">
+		<!-- Panels Grid - CSS Columns -->
+		<div class="panels-grid">
+			<!-- World Leaders -->
+			<div class="panel-item">
+				<WorldLeadersPanel />
+			</div>
+
+			<!-- News / Politics Column -->
+			<div class="panel-item">
+				<USPoliticsPanel limit={20} />
+			</div>
+
+			<div class="panel-item">
+				<NewsPanel limit={20} />
+			</div>
+
+			<div class="panel-item">
+				<CourtCasesPanel limit={15} />
+			</div>
+
+			<div class="panel-item">
+				<CongressPanel limit={15} />
+			</div>
+
+			<!-- Markets Column -->
+			<div class="panel-item">
 				<MarketsPanel />
-				<CryptoPanel />
+			</div>
+
+			<div class="panel-item">
 				<CommoditiesPanel />
 			</div>
-		</div>
 
-		<!-- Right Column: Alerts & Intel -->
-		<div class="dashboard-col col-intel">
-			<div class="panel-stack">
+			<div class="panel-item">
+				<CryptoPanel />
+			</div>
+
+			<div class="panel-item">
+				<PolymarketPanel />
+			</div>
+
+			<!-- Sector Heatmap -->
+			<div class="panel-item">
+				<SectorHeatmapPanel />
+			</div>
+
+			<!-- Main Character -->
+			<div class="panel-item">
+				<MainCharacterPanel />
+			</div>
+
+			<!-- Alerts / Intel Column -->
+			<div class="panel-item">
 				<AlertsPanel />
+			</div>
+
+			<div class="panel-item">
 				<IntelPanel />
+			</div>
+
+			<!-- Gov Contracts & Layoffs -->
+			<div class="panel-item">
+				<GovContractsPanel />
+			</div>
+
+			<div class="panel-item">
+				<LayoffsPanel />
 			</div>
 		</div>
 	</main>
@@ -68,65 +136,69 @@
 <style>
 	.dashboard {
 		min-height: 100vh;
-		background: var(--bg-primary);
+		background: var(--bg);
 	}
 
 	.dashboard-main {
-		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
-		gap: 1rem;
-		padding: 1rem;
-		max-width: 1800px;
+		padding: 0.75rem;
+		max-width: 2000px;
 		margin: 0 auto;
 	}
 
-	.dashboard-col {
-		display: flex;
-		flex-direction: column;
-		min-height: calc(100vh - 80px);
+	.map-section {
+		margin-bottom: 0.75rem;
 	}
 
-	.panel-stack {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		height: 100%;
+	.panels-grid {
+		columns: 1;
+		column-gap: 0.75rem;
 	}
 
-	.panel-stack > :global(*) {
-		flex: 1;
-		min-height: 0;
+	.panel-item {
+		break-inside: avoid;
+		margin-bottom: 0.75rem;
+	}
+
+	/* Responsive columns */
+	@media (min-width: 600px) {
+		.panels-grid {
+			columns: 2;
+		}
+	}
+
+	@media (min-width: 900px) {
+		.panels-grid {
+			columns: 3;
+		}
+	}
+
+	@media (min-width: 1200px) {
+		.panels-grid {
+			columns: 4;
+		}
+	}
+
+	@media (min-width: 1600px) {
+		.panels-grid {
+			columns: 5;
+		}
+	}
+
+	@media (min-width: 2000px) {
+		.panels-grid {
+			columns: 6;
+		}
 	}
 
 	.error-toast {
 		position: fixed;
 		bottom: 1rem;
 		right: 1rem;
-		background: var(--bg-secondary);
-		border: 1px solid var(--danger);
+		background: var(--surface);
+		border: 1px solid var(--red);
 		border-radius: 0.5rem;
 		padding: 0.75rem 1rem;
 		max-width: 300px;
 		z-index: 100;
-	}
-
-	@media (max-width: 1200px) {
-		.dashboard-main {
-			grid-template-columns: 1fr 1fr;
-		}
-
-		.col-intel {
-			grid-column: span 2;
-		}
-	}
-
-	@media (max-width: 768px) {
-		.dashboard-main {
-			grid-template-columns: 1fr;
-		}
-
-		.col-intel {
-			grid-column: span 1;
-		}
 	}
 </style>

@@ -123,7 +123,18 @@ export async function fetchCategoryNews(category: NewsCategory): Promise<NewsIte
  * Fetch all news across all categories
  */
 export async function fetchAllNews(): Promise<Map<NewsCategory, NewsItem[]>> {
-	const categories: NewsCategory[] = ['politics', 'tech', 'finance', 'gov', 'ai', 'intel'];
+	const categories: NewsCategory[] = [
+		'politics',
+		'uspolitics',
+		'legal',
+		'immigration',
+		'tech',
+		'finance',
+		'gov',
+		'ai',
+		'intel',
+		'macro'
+	];
 	const results = new Map<NewsCategory, NewsItem[]>();
 
 	// Fetch categories in parallel
