@@ -227,6 +227,73 @@ export const PANELS: PanelDefinition[] = [
 		category: 'intel',
 		refreshStage: 'tertiary',
 		order: 21
+	},
+
+	// ===========================================
+	// SITUATION WATCHES - Monitor specific crises
+	// ===========================================
+	{
+		id: 'ainews',
+		name: 'AI / Technology',
+		description: 'AI research, products, and industry news',
+		defaultEnabled: true,
+		category: 'news',
+		refreshStage: 'secondary',
+		order: 22
+	},
+	{
+		id: 'custommonitors',
+		name: 'Custom Monitors',
+		description: 'User-created keyword watches',
+		defaultEnabled: true,
+		category: 'analysis',
+		refreshStage: 'tertiary',
+		order: 23
+	},
+	{
+		id: 'situation-greenland',
+		name: 'Greenland Watch',
+		description: 'US acquisition interest, Danish relations, Arctic sovereignty',
+		defaultEnabled: false,
+		category: 'intel',
+		refreshStage: 'tertiary',
+		order: 24
+	},
+	{
+		id: 'situation-iran',
+		name: 'Iran Watch',
+		description: 'Revolution protests, regime instability & nuclear program',
+		defaultEnabled: false,
+		category: 'intel',
+		refreshStage: 'tertiary',
+		order: 25
+	},
+	{
+		id: 'situation-venezuela',
+		name: 'Venezuela Watch',
+		description: 'Maduro regime, opposition, humanitarian crisis',
+		defaultEnabled: false,
+		category: 'intel',
+		refreshStage: 'tertiary',
+		order: 26
+	},
+	{
+		id: 'situation-taiwan',
+		name: 'Taiwan Watch',
+		description: 'Cross-strait tensions, US-China relations, defense',
+		defaultEnabled: false,
+		category: 'intel',
+		refreshStage: 'tertiary',
+		order: 27
+	},
+	{
+		id: 'situation-ukraine',
+		name: 'Ukraine Watch',
+		description: 'Russia-Ukraine war, NATO support, territorial disputes',
+		defaultEnabled: false,
+		category: 'intel',
+		refreshStage: 'tertiary',
+		order: 28
 	}
 ];
 

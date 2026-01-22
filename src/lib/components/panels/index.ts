@@ -25,3 +25,12 @@ export { default as TreasuryPanel } from './TreasuryPanel.svelte';
 export { default as MacroIndicatorsPanel } from './MacroIndicatorsPanel.svelte';
 export { default as EconomicCalendarPanel } from './EconomicCalendarPanel.svelte';
 export { default as FedWatchPanel } from './FedWatchPanel.svelte';
+
+// Analysis panels
+export { default as CorrelationPanel } from './CorrelationPanel.svelte';
+export { default as NarrativePanel } from './NarrativePanel.svelte';
+
+// AI & Situation Watch panels
+export { default as AINewsPanel } from './AINewsPanel.svelte';
+export { default as SituationWatchPanel } from './SituationWatchPanel.svelte';
+export { default as CustomMonitorsPanel } from './CustomMonitorsPanel.svelte';

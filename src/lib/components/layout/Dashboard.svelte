@@ -18,8 +18,15 @@
 		SectorHeatmapPanel,
 		MainCharacterPanel,
 		GovContractsPanel,
-		LayoffsPanel
+		LayoffsPanel,
+		// New panels
+		AINewsPanel,
+		CorrelationPanel,
+		NarrativePanel,
+		SituationWatchPanel,
+		CustomMonitorsPanel
 	} from '$lib/components/panels';
+	import { SITUATIONS } from '$lib/config/situations';
 
 	onMount(() => {
 		// Start auto-refresh if enabled
@@ -113,6 +120,38 @@
 			<div class="panel-item">
 				<LayoffsPanel />
 			</div>
+
+			<!-- AI News -->
+			<div class="panel-item">
+				<AINewsPanel />
+			</div>
+
+			<!-- Pattern Analysis -->
+			<div class="panel-item">
+				<CorrelationPanel />
+			</div>
+
+			<div class="panel-item">
+				<NarrativePanel />
+			</div>
+
+			<!-- Custom Monitors -->
+			<div class="panel-item">
+				<CustomMonitorsPanel />
+			</div>
+
+			<!-- Situation Watches -->
+			{#each SITUATIONS as situation (situation.id)}
+				<div class="panel-item">
+					<SituationWatchPanel
+						id={situation.id}
+						title={situation.title}
+						description={situation.description}
+						keywords={situation.keywords}
+						icon={situation.icon}
+					/>
+				</div>
+			{/each}
 		</div>
 	</main>
 

@@ -59,3 +59,10 @@ export {
 	getPanelById,
 	type PanelDefinition
 } from './panels';
+
+export {
+	SITUATIONS,
+	getSituationById,
+	getSituationIds,
+	type SituationConfig
+} from './situations';
