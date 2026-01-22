@@ -1,0 +1,283 @@
+/**
+ * Correlation Analysis - Detect patterns across news items
+ */
+
+import type { NewsItem, Correlation } from '$lib/types';
+import { generateId } from '$lib/utils';
+
+/**
+ * Correlation topics to detect
+ */
+const CORRELATION_TOPICS = [
+	{
+		id: 'military-tension',
+		name: 'Military Tension',
+		keywords: ['military', 'troops', 'deployment', 'missile', 'naval', 'air force', 'defense'],
+		severity: 'high' as const
+	},
+	{
+		id: 'economic-crisis',
+		name: 'Economic Crisis',
+		keywords: ['recession', 'crash', 'inflation', 'unemployment', 'default', 'bailout', 'bank run'],
+		severity: 'critical' as const
+	},
+	{
+		id: 'cyber-threat',
+		name: 'Cyber Threat',
+		keywords: ['cyberattack', 'hack', 'breach', 'ransomware', 'malware', 'vulnerability'],
+		severity: 'high' as const
+	},
+	{
+		id: 'geopolitical-shift',
+		name: 'Geopolitical Shift',
+		keywords: ['sanctions', 'embargo', 'alliance', 'treaty', 'diplomatic', 'summit'],
+		severity: 'medium' as const
+	},
+	{
+		id: 'market-volatility',
+		name: 'Market Volatility',
+		keywords: ['volatility', 'selloff', 'correction', 'circuit breaker', 'trading halt'],
+		severity: 'high' as const
+	},
+	{
+		id: 'energy-crisis',
+		name: 'Energy Crisis',
+		keywords: ['oil', 'gas', 'opec', 'pipeline', 'energy', 'blackout', 'grid'],
+		severity: 'medium' as const
+	},
+	{
+		id: 'political-instability',
+		name: 'Political Instability',
+		keywords: ['protest', 'coup', 'resignation', 'impeachment', 'election', 'unrest'],
+		severity: 'high' as const
+	},
+	{
+		id: 'tech-disruption',
+		name: 'Tech Disruption',
+		keywords: ['ai', 'artificial intelligence', 'regulation', 'antitrust', 'breakthrough'],
+		severity: 'medium' as const
+	}
+];
+
+/**
+ * Calculate keyword match score for an item
+ */
+function calculateMatchScore(item: NewsItem, keywords: string[]): number {
+	const text = `${item.title} ${item.description || ''}`.toLowerCase();
+	let score = 0;
+
+	for (const keyword of keywords) {
+		if (text.includes(keyword.toLowerCase())) {
+			score++;
+		}
+	}
+
+	return score;
+}
+
+/**
+ * Find correlations across news items
+ */
+export function detectCorrelations(
+	items: NewsItem[],
+	minItems = 3,
+	minConfidence = 0.5
+): Correlation[] {
+	const correlations: Correlation[] = [];
+
+	for (const topic of CORRELATION_TOPICS) {
+		const matchingItems: Array<{ item: NewsItem; score: number }> = [];
+
+		// Score each item against the topic
+		for (const item of items) {
+			const score = calculateMatchScore(item, topic.keywords);
+			if (score >= 2) {
+				// Require at least 2 keyword matches
+				matchingItems.push({ item, score });
+			}
+		}
+
+		// Only create correlation if enough items match
+		if (matchingItems.length >= minItems) {
+			// Sort by score and take top matches
+			matchingItems.sort((a, b) => b.score - a.score);
+			const topItems = matchingItems.slice(0, 10);
+
+			// Calculate confidence based on score distribution
+			const avgScore = topItems.reduce((sum, m) => sum + m.score, 0) / topItems.length;
+			const confidence = Math.min(1, avgScore / topic.keywords.length);
+
+			if (confidence >= minConfidence) {
+				correlations.push({
+					id: generateId(),
+					topic: topic.name,
+					items: topItems.map((m) => m.item),
+					severity: topic.severity,
+					confidence,
+					detectedAt: new Date()
+				});
+			}
+		}
+	}
+
+	// Sort by severity and confidence
+	const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+	correlations.sort((a, b) => {
+		const severityDiff = severityOrder[a.severity] - severityOrder[b.severity];
+		if (severityDiff !== 0) return severityDiff;
+		return b.confidence - a.confidence;
+	});
+
+	return correlations;
+}
+
+/**
+ * Find correlations between specific sources
+ */
+export function detectCrossSourceCorrelations(items: NewsItem[]): Correlation[] {
+	// Group items by source
+	const bySource = new Map<string, NewsItem[]>();
+	for (const item of items) {
+		const list = bySource.get(item.source) || [];
+		list.push(item);
+		bySource.set(item.source, list);
+	}
+
+	// Find topics mentioned across multiple sources
+	const correlations: Correlation[] = [];
+	const sources = Array.from(bySource.keys());
+
+	if (sources.length < 2) return correlations;
+
+	// Simple word extraction for correlation
+	const extractKeywords = (text: string): Set<string> => {
+		const words = text.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
+		return new Set(words.filter((w) => !STOP_WORDS.has(w)));
+	};
+
+	// Find common keywords across sources
+	const sourceKeywords = new Map<string, Map<string, NewsItem[]>>();
+	for (const [source, sourceItems] of bySource) {
+		const kwMap = new Map<string, NewsItem[]>();
+		for (const item of sourceItems) {
+			const keywords = extractKeywords(`${item.title} ${item.description || ''}`);
+			for (const kw of keywords) {
+				const list = kwMap.get(kw) || [];
+				list.push(item);
+				kwMap.set(kw, list);
+			}
+		}
+		sourceKeywords.set(source, kwMap);
+	}
+
+	// Find keywords present in multiple sources
+	const keywordSources = new Map<string, Set<string>>();
+	for (const [source, kwMap] of sourceKeywords) {
+		for (const kw of kwMap.keys()) {
+			const set = keywordSources.get(kw) || new Set();
+			set.add(source);
+			keywordSources.set(kw, set);
+		}
+	}
+
+	// Create correlations for keywords in 3+ sources
+	for (const [keyword, sourcesSet] of keywordSources) {
+		if (sourcesSet.size >= 3) {
+			const relatedItems: NewsItem[] = [];
+			for (const source of sourcesSet) {
+				const kwMap = sourceKeywords.get(source);
+				const items = kwMap?.get(keyword) || [];
+				relatedItems.push(...items.slice(0, 2));
+			}
+
+			if (relatedItems.length >= 3) {
+				correlations.push({
+					id: generateId(),
+					topic: `Cross-source: "${keyword}"`,
+					items: relatedItems.slice(0, 10),
+					severity: 'medium',
+					confidence: sourcesSet.size / sources.length,
+					detectedAt: new Date()
+				});
+			}
+		}
+	}
+
+	return correlations.slice(0, 5);
+}
+
+// Common stop words to filter out
+const STOP_WORDS = new Set([
+	'the',
+	'and',
+	'for',
+	'are',
+	'but',
+	'not',
+	'you',
+	'all',
+	'can',
+	'her',
+	'was',
+	'one',
+	'our',
+	'out',
+	'day',
+	'get',
+	'has',
+	'him',
+	'his',
+	'how',
+	'its',
+	'may',
+	'new',
+	'now',
+	'old',
+	'see',
+	'way',
+	'who',
+	'boy',
+	'did',
+	'own',
+	'say',
+	'she',
+	'too',
+	'use',
+	'your',
+	'each',
+	'make',
+	'like',
+	'back',
+	'only',
+	'come',
+	'over',
+	'such',
+	'than',
+	'into',
+	'year',
+	'some',
+	'them',
+	'time',
+	'very',
+	'when',
+	'from',
+	'they',
+	'been',
+	'have',
+	'many',
+	'said',
+	'with',
+	'this',
+	'that',
+	'will',
+	'what',
+	'were',
+	'there',
+	'their',
+	'which',
+	'would',
+	'could',
+	'about',
+	'other',
+	'after'
+]);

@@ -1,0 +1,145 @@
+/**
+ * Crypto API - CoinGecko integration
+ */
+
+import { cryptoClient } from '$lib/services';
+import { CRYPTO_IDS, API_URLS, logger } from '$lib/config';
+import type { CryptoData } from '$lib/types';
+
+interface CoinGeckoMarket {
+	id: string;
+	symbol: string;
+	name: string;
+	current_price: number;
+	price_change_percentage_24h: number;
+	market_cap: number;
+	total_volume: number;
+}
+
+/**
+ * Fetch crypto prices from CoinGecko
+ */
+export async function fetchCryptoPrices(): Promise<CryptoData[]> {
+	try {
+		const ids = CRYPTO_IDS.join(',');
+		const url = `${API_URLS.coingecko}/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=false`;
+
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		const data: CoinGeckoMarket[] = await response.json();
+
+		return data.map((coin) => ({
+			id: coin.id,
+			symbol: coin.symbol.toUpperCase(),
+			name: coin.name,
+			price: coin.current_price,
+			change24h: coin.price_change_percentage_24h || 0,
+			marketCap: coin.market_cap,
+			volume24h: coin.total_volume,
+			lastUpdated: new Date()
+		}));
+	} catch (err) {
+		logger.error('Crypto', 'Failed to fetch crypto prices:', err);
+		return [];
+	}
+}
+
+/**
+ * Fetch single coin details
+ */
+export async function fetchCoinDetails(id: string): Promise<CryptoData | null> {
+	try {
+		const url = `${API_URLS.coingecko}/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false`;
+
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		const data = await response.json();
+		const market = data.market_data;
+
+		return {
+			id: data.id,
+			symbol: data.symbol.toUpperCase(),
+			name: data.name,
+			price: market.current_price.usd,
+			change24h: market.price_change_percentage_24h || 0,
+			marketCap: market.market_cap.usd,
+			volume24h: market.total_volume.usd,
+			lastUpdated: new Date()
+		};
+	} catch (err) {
+		logger.error('Crypto', `Failed to fetch coin ${id}:`, err);
+		return null;
+	}
+}
+
+/**
+ * Fetch global crypto market data
+ */
+export async function fetchGlobalCryptoData(): Promise<{
+	totalMarketCap: number;
+	totalVolume: number;
+	btcDominance: number;
+	marketCapChange24h: number;
+} | null> {
+	try {
+		const url = `${API_URLS.coingecko}/global`;
+		const response = await fetch(url);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		const data = await response.json();
+		const global = data.data;
+
+		return {
+			totalMarketCap: global.total_market_cap.usd,
+			totalVolume: global.total_volume.usd,
+			btcDominance: global.market_cap_percentage.btc,
+			marketCapChange24h: global.market_cap_change_percentage_24h_usd
+		};
+	} catch (err) {
+		logger.error('Crypto', 'Failed to fetch global data:', err);
+		return null;
+	}
+}
+
+/**
+ * Format large numbers (billions, trillions)
+ */
+export function formatCryptoMarketCap(value: number): string {
+	if (value >= 1e12) {
+		return `$${(value / 1e12).toFixed(2)}T`;
+	}
+	if (value >= 1e9) {
+		return `$${(value / 1e9).toFixed(2)}B`;
+	}
+	if (value >= 1e6) {
+		return `$${(value / 1e6).toFixed(2)}M`;
+	}
+	return `$${value.toLocaleString()}`;
+}
+
+/**
+ * Format crypto price with appropriate decimals
+ */
+export function formatCryptoPrice(price: number): string {
+	if (price >= 1000) {
+		return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	}
+	if (price >= 1) {
+		return `$${price.toFixed(2)}`;
+	}
+	if (price >= 0.01) {
+		return `$${price.toFixed(4)}`;
+	}
+	return `$${price.toFixed(6)}`;
+}
