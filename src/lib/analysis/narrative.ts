@@ -44,247 +44,92 @@ function getSourceTier(source: string): 'fringe' | 'alternative' | 'mainstream' 
 }
 
 /**
- * Extract key phrases from text
+ * Common English words that are never proper nouns
+ * These get filtered out to reduce noise
  */
-function extractPhrases(text: string): string[] {
-	const cleaned = text.toLowerCase().replace(/[^\w\s]/g, ' ');
-	const words = cleaned.split(/\s+/).filter((w) => w.length > 3);
-
-	// Extract 2-3 word phrases
-	const phrases: string[] = [];
-	for (let i = 0; i < words.length - 1; i++) {
-		if (isSignificantWord(words[i]) && isSignificantWord(words[i + 1])) {
-			phrases.push(`${words[i]} ${words[i + 1]}`);
-		}
-		if (i < words.length - 2 && isSignificantWord(words[i + 2])) {
-			phrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
-		}
-	}
-
-	return phrases;
-}
-
-/**
- * Generic phrases to filter out - common news/business terms that aren't narratives
- */
-const BLOCKED_PHRASES = new Set([
-	// Generic business terms
-	'joint venture',
-	'press release',
-	'board directors',
-	'chief executive',
-	'executive officer',
-	'annual report',
-	'fiscal year',
-	'quarter results',
-	'earnings report',
-	'stock market',
-	'market share',
-	'private equity',
-	'venture capital',
-	'initial public',
-	'public offering',
-	// Generic government/politics
-	'united states',
-	'white house',
-	'supreme court',
-	'federal reserve',
-	'central bank',
-	'bank japan',
-	'bank england',
-	'european union',
-	'european central',
-	'prime minister',
-	'foreign minister',
-	'defense minister',
-	'finance minister',
-	// Generic news phrases
-	'breaking news',
-	'latest news',
-	'news update',
-	'developing story',
-	'reports say',
-	'sources say',
-	'according sources',
-	'official says',
-	'officials say',
-	'government says',
-	'statement says',
-	'spokesman says',
-	'spokesperson says',
-	// Time references
-	'last week',
-	'last month',
-	'last year',
-	'next week',
-	'next month',
-	'next year',
-	'this week',
-	'this month',
-	'this year',
-	// Generic locations without context
-	'north america',
-	'south america',
-	'middle east',
-	'asia pacific',
-	'east asia',
-	'south asia',
-	'west africa',
-	'east africa',
-	// Other generic
-	'million dollars',
-	'billion dollars',
-	'percent increase',
-	'percent decrease',
-	'year over',
-	'over year',
-	'quarter over',
-	'month over',
-	'record high',
-	'record low',
-	'all time',
-	'first time',
-	'long term',
-	'short term',
-	'real estate',
-	'social media',
-	'artificial intelligence', // too broad
-	'climate change', // too broad unless specific
-	'public health',
-	'national security',
-	'economic growth',
-	'interest rates',
-	'inflation rate',
-	'unemployment rate',
-	'gross domestic',
-	'domestic product',
-	'board peace', // specific garbage we've seen
-	// Partial phrases / fragments
-	'judge rejects',
-	'judge rules',
-	'court rules',
-	'court rejects',
-	'report says',
-	'study finds',
-	'study shows',
-	'research shows',
-	'poll shows',
-	'survey shows',
-	'data shows',
-	'experts say',
-	'analysts say',
-	// Redundant event names (keep full names only)
-	'world economic',
-	'economic forum',
-	'world forum',
-	'davos forum',
-	'general assembly',
-	'security council',
-	// More generic terms
-	'global economy',
-	'world economy',
-	'stock exchange',
-	'wall street',
-	'tech companies',
-	'tech industry',
-	'oil prices',
-	'gas prices',
-	'energy prices',
-	'food prices'
+const COMMON_WORDS = new Set([
+	// Conjunctions and prepositions that may appear capitalized
+	'with', 'after', 'before', 'during', 'while', 'from', 'into', 'over',
+	'under', 'through', 'between', 'about', 'around', 'against', 'along',
+	// Verbs commonly capitalized in headlines
+	'says', 'said', 'tells', 'told', 'asks', 'asked', 'makes', 'made',
+	'gets', 'take', 'takes', 'took', 'goes', 'went', 'comes', 'came',
+	'sees', 'seen', 'shows', 'shown', 'calls', 'called', 'warns', 'warns',
+	// Adverbs and adjectives
+	'just', 'only', 'even', 'also', 'still', 'already', 'here', 'there',
+	'first', 'last', 'next', 'more', 'most', 'some', 'many', 'other',
+	// Pronouns and determiners
+	'this', 'that', 'these', 'those', 'what', 'which', 'where', 'when',
+	'will', 'would', 'could', 'should', 'must', 'might', 'being', 'having',
+	// Generic political/news terms
+	'house', 'senate', 'court', 'bill', 'vote', 'deal', 'plan', 'report',
+	'news', 'update', 'breaking', 'live', 'watch', 'read', 'latest'
 ]);
 
 /**
- * Check if a phrase should be blocked
+ * Extract key phrases from a headline using smarter heuristics
+ * Focuses on proper nouns, named entities, and meaningful phrases
  */
-function isBlockedPhrase(phrase: string): boolean {
-	return BLOCKED_PHRASES.has(phrase.toLowerCase());
-}
+function extractPhrases(title: string): string[] {
+	const phrases: string[] = [];
 
-/**
- * Check if word is significant (not a stop word or technical artifact)
- */
-function isSignificantWord(word: string): boolean {
-	const stopWords = new Set([
-		// Common stop words
-		'the',
-		'and',
-		'for',
-		'are',
-		'but',
-		'not',
-		'you',
-		'all',
-		'can',
-		'was',
-		'one',
-		'our',
-		'out',
-		'has',
-		'have',
-		'had',
-		'his',
-		'her',
-		'how',
-		'its',
-		'may',
-		'new',
-		'now',
-		'say',
-		'says',
-		'said',
-		'will',
-		'with',
-		'from',
-		'they',
-		'been',
-		'this',
-		'that',
-		'were',
-		'would',
-		'could',
-		'about',
-		'after',
-		'more',
-		'some',
-		'what',
-		'when',
-		'which',
-		'their',
-		'there',
-		'these',
-		'those',
-		// HTML/URL artifacts that leak through from RSS descriptions
-		'href',
-		'https',
-		'http',
-		'www',
-		'html',
-		'link',
-		'click',
-		'here',
-		'read',
-		'more',
-		'span',
-		'class',
-		'style',
-		'width',
-		'height',
-		'target',
-		'blank',
-		'noopener',
-		'noreferrer',
-		'continue',
-		'reading',
-		'article',
-		'source',
-		'image',
-		'video',
-		'photo',
-		'caption',
-		'embed',
-		'iframe'
-	]);
-	return !stopWords.has(word) && word.length > 3;
+	// Clean but preserve case for proper noun detection
+	const cleaned = title.replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
+	const words = cleaned.split(' ');
+
+	// Strategy 1: Extract consecutive capitalized words (proper nouns/names)
+	// Allow short connectors (of, the, and) in the middle
+	let currentPhrase: string[] = [];
+	for (let i = 0; i < words.length; i++) {
+		const word = words[i];
+		const isCapitalized = /^[A-Z]/.test(word) && word.length > 1;
+		const isConnector = ['of', 'the', 'and', 'for', 'in', 'on', 'at', 'to'].includes(word.toLowerCase());
+
+		if (isCapitalized) {
+			currentPhrase.push(word);
+		} else if (isConnector && currentPhrase.length > 0) {
+			// Only include connector if followed by another capitalized word
+			if (i + 1 < words.length && /^[A-Z]/.test(words[i + 1])) {
+				currentPhrase.push(word);
+			} else {
+				// End phrase here
+				if (currentPhrase.length >= 2) {
+					phrases.push(currentPhrase.join(' '));
+				}
+				currentPhrase = [];
+			}
+		} else {
+			if (currentPhrase.length >= 2) {
+				phrases.push(currentPhrase.join(' '));
+			}
+			currentPhrase = [];
+		}
+	}
+	// Don't forget trailing phrase
+	if (currentPhrase.length >= 2) {
+		phrases.push(currentPhrase.join(' '));
+	}
+
+	// Strategy 2: Find mid-sentence capitalized words (definitely proper nouns)
+	// Words after index 0 that are capitalized are almost certainly proper nouns
+	// These are valuable single-word entities like "Trump", "Zelensky", "China"
+	for (let i = 1; i < words.length; i++) {
+		const word = words[i];
+		// Mid-sentence capitalized word with 4+ letters = almost certainly a proper noun
+		if (/^[A-Z][a-z]+/.test(word) && word.length >= 4) {
+			phrases.push(word);
+		}
+	}
+
+	// Strategy 3: First word if it looks like a proper noun (name pattern)
+	// Only add if it's 4+ letters to avoid generic words like "The", "New"
+	if (words.length > 0 && /^[A-Z][a-z]+/.test(words[0]) && words[0].length >= 4) {
+		phrases.push(words[0]);
+	}
+
+	// Dedupe and filter out common words
+	const unique = [...new Set(phrases)];
+	return unique.filter(p => p.length >= 4 && !COMMON_WORDS.has(p.toLowerCase()));
 }
 
 /**
@@ -299,6 +144,7 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 	const phraseData = new Map<
 		string,
 		{
+			displayName: string; // Original case for display
 			mentions: number;
 			sources: Set<string>;
 			tiers: Set<'fringe' | 'alternative' | 'mainstream'>;
@@ -309,43 +155,42 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 	>();
 
 	for (const item of items) {
-		const phrases = extractPhrases(`${item.title} ${item.description || ''}`);
+		// Extract from title only - headlines are curated, descriptions have boilerplate
+		const phrases = extractPhrases(item.title);
 		const tier = getSourceTier(item.source);
 
 		for (const phrase of phrases) {
-			// Skip blocked generic phrases
-			if (isBlockedPhrase(phrase)) continue;
-			const data = phraseData.get(phrase) || {
-				mentions: 0,
-				sources: new Set(),
-				tiers: new Set(),
-				firstSeen: item.pubDate,
-				lastSeen: item.pubDate,
-				items: []
-			};
+			// Normalize to lowercase for grouping, but store original case for display
+			const key = phrase.toLowerCase();
+			const existing = phraseData.get(key);
 
-			data.mentions++;
-			data.sources.add(item.source);
-			data.tiers.add(tier);
-			if (item.pubDate < data.firstSeen) data.firstSeen = item.pubDate;
-			if (item.pubDate > data.lastSeen) data.lastSeen = item.pubDate;
-			data.items.push(item);
-
-			phraseData.set(phrase, data);
+			if (existing) {
+				existing.mentions++;
+				existing.sources.add(item.source);
+				existing.tiers.add(tier);
+				if (item.pubDate < existing.firstSeen) existing.firstSeen = item.pubDate;
+				if (item.pubDate > existing.lastSeen) existing.lastSeen = item.pubDate;
+				existing.items.push(item);
+			} else {
+				phraseData.set(key, {
+					displayName: phrase, // Keep original case for display
+					mentions: 1,
+					sources: new Set([item.source]),
+					tiers: new Set([tier]),
+					firstSeen: item.pubDate,
+					lastSeen: item.pubDate,
+					items: [item]
+				});
+			}
 		}
 	}
 
 	// Convert to narratives
 	const narratives: Narrative[] = [];
 
-	for (const [phrase, data] of phraseData) {
+	for (const [key, data] of phraseData) {
 		if (data.mentions < minMentions) continue;
 		if (data.sources.size < 2) continue; // Require multiple sources
-
-		// Skip if phrase is too short or too generic
-		const words = phrase.split(' ');
-		if (words.length < 2) continue;
-		if (words.every(w => w.length <= 4)) continue; // All short words = likely garbage
 
 		// Determine stage based on source tiers
 		let stage: Narrative['stage'];
@@ -380,7 +225,7 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 
 		narratives.push({
 			id: generateId(),
-			topic: phrase,
+			topic: data.displayName,
 			stage,
 			mentions: data.mentions,
 			sources: Array.from(data.sources),
