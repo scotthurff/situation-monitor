@@ -40,7 +40,7 @@
 			class:mobile={viewport.isMobile}
 			title="Refresh now"
 		>
-			{refreshStore.isRefreshing ? '↻' : '↻'}
+			<span class="refresh-icon" class:spinning={refreshStore.isRefreshing}>↻</span>
 		</button>
 	</div>
 </header>
@@ -111,6 +111,13 @@
 	.refresh-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.refresh-icon {
+		display: inline-block;
+	}
+
+	.refresh-icon.spinning {
 		animation: spin 1s linear infinite;
 	}
 

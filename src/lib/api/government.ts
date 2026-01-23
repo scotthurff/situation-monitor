@@ -210,19 +210,24 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 		// USASpending uses POST with a JSON body
 		const url = `${API_URLS.usaspending}/search/spending_by_award/`;
 
-		// Get recent significant contracts (>$10M) from last 7 days
+		// Get recent significant contracts (>$1M) from last 30 days
+		// Use date_type: action_date to filter by award/modification date (not period of performance)
+		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+		const today = new Date().toISOString().split('T')[0];
+
 		const body = {
 			filters: {
 				award_type_codes: ['A', 'B', 'C', 'D'], // Contract types
 				time_period: [
 					{
-						start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-						end_date: new Date().toISOString().split('T')[0]
+						start_date: thirtyDaysAgo,
+						end_date: today,
+						date_type: 'action_date' // Use action/award date, not period of performance
 					}
 				],
 				award_amounts: [
 					{
-						lower_bound: 10000000 // >$10M for more results
+						lower_bound: 1000000 // >$1M to get more recent contracts
 					}
 				]
 			},
@@ -233,12 +238,12 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 				'Award Amount',
 				'Awarding Agency',
 				'Description',
-				'Start Date',
+				'Last Modified Date',
 				'Award Type'
 			],
 			page: 1,
-			limit: 15,
-			sort: 'Award Amount',
+			limit: 20,
+			sort: 'Last Modified Date',
 			order: 'desc'
 		};
 
@@ -265,13 +270,17 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 		// USASpending returns field names as requested, with spaces
 		const contracts: GovContract[] = awards.map((award: Record<string, unknown>, index: number) => {
 			const internalId = String(award['generated_internal_id'] || '');
+			// Use Last Modified Date for the award date (when action occurred)
+			const dateStr = String(award['Last Modified Date'] || '');
+			const awardDate = dateStr ? new Date(dateStr) : new Date();
+
 			return {
 				id: `gc-${index + 1}`,
 				agency: getAgencyAbbrev(String(award['Awarding Agency'] || '')),
 				vendor: cleanVendorName(String(award['Recipient Name'] || 'Unknown')),
 				value: Number(award['Award Amount']) || 0,
 				description: cleanDescription(String(award['Description'] || 'Federal contract')),
-				awardDate: new Date(String(award['Start Date']) || Date.now()),
+				awardDate,
 				type: getContractType(String(award['Award Type'] || '')),
 				link: internalId ? `https://www.usaspending.gov/award/${internalId}` : undefined
 			};
