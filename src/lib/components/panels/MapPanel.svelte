@@ -3,7 +3,7 @@
 	import { Panel } from '$lib/components/common';
 	import {
 		HOTSPOTS,
-		CONFLICT_ZONES,
+		// CONFLICT_ZONES available but not rendered - see comment in initMap
 		CHOKEPOINTS,
 		CABLE_LANDINGS,
 		NUCLEAR_SITES,
@@ -294,18 +294,8 @@
 				.attr('fill', 'rgba(0,0,0,0.3)')
 				.attr('stroke', 'none');
 
-			// Draw conflict zones
-			CONFLICT_ZONES.forEach((zone) => {
-				mapGroup
-					.append('path')
-					.datum({ type: 'Polygon', coordinates: [zone.coords] } as GeoJSON.Polygon)
-					.attr('d', path as unknown as string)
-					.attr('fill', zone.color)
-					.attr('fill-opacity', 0.15)
-					.attr('stroke', zone.color)
-					.attr('stroke-width', 0.5)
-					.attr('stroke-opacity', 0.4);
-			});
+			// Conflict zones available in CONFLICT_ZONES config but not rendered
+			// To re-enable: iterate CONFLICT_ZONES and draw polygons with fill-opacity 0.15
 
 			// Draw chokepoints
 			CHOKEPOINTS.forEach((cp) => {
