@@ -37,19 +37,19 @@ export const API_URLS = {
 
 /**
  * CORS Proxy Configuration
- * Multiple proxies for redundancy - if one fails, try the next
+ * Primary: our own server-side proxy (no CORS issues)
+ * Fallback: external proxies for redundancy
  */
 export const CORS_PROXIES = [
-	// Primary: corsproxy.io (reliable, no rate limits mentioned)
+	// Fallback 1: corsproxy.io
 	'https://corsproxy.io/?url=',
-	// Fallback 1: allorigins
-	'https://api.allorigins.win/raw?url=',
-	// Fallback 2: cors-anywhere (may require temporary access)
-	'https://cors-anywhere.herokuapp.com/'
+	// Fallback 2: allorigins
+	'https://api.allorigins.win/raw?url='
 ] as const;
 
 /**
- * Fetch URL through CORS proxy with automatic fallback
+ * Fetch URL through our server-side proxy (primary) or external CORS proxy (fallback)
+ * Server-side proxy eliminates CORS issues entirely
  */
 export async function fetchWithProxy(
 	url: string,
@@ -58,6 +58,24 @@ export async function fetchWithProxy(
 	const encodedUrl = encodeURIComponent(url);
 	let lastError: Error | undefined;
 
+	// Primary: Use our own server-side proxy (works from any domain)
+	if (browser) {
+		try {
+			const proxyUrl = `/api/proxy?url=${encodedUrl}`;
+			const response = await fetch(proxyUrl, options);
+
+			if (response.ok) {
+				return response;
+			}
+
+			console.warn(`[Proxy] Server proxy returned ${response.status}, trying external proxies...`);
+		} catch (error) {
+			lastError = error instanceof Error ? error : new Error(String(error));
+			console.warn(`[Proxy] Server proxy failed:`, lastError.message);
+		}
+	}
+
+	// Fallback: External CORS proxies
 	for (const proxy of CORS_PROXIES) {
 		try {
 			const proxyUrl = proxy.includes('?url=')
@@ -68,7 +86,6 @@ export async function fetchWithProxy(
 				...options,
 				headers: {
 					...options.headers,
-					// Some proxies need origin header
 					'X-Requested-With': 'XMLHttpRequest'
 				}
 			});
@@ -77,7 +94,6 @@ export async function fetchWithProxy(
 				return response;
 			}
 
-			// If we get a non-OK response, try next proxy
 			console.warn(`[CORS] Proxy ${proxy} returned ${response.status}, trying next...`);
 		} catch (error) {
 			lastError = error instanceof Error ? error : new Error(String(error));
@@ -85,7 +101,7 @@ export async function fetchWithProxy(
 		}
 	}
 
-	throw lastError ?? new Error('All CORS proxies failed');
+	throw lastError ?? new Error('All proxies failed');
 }
 
 /**
