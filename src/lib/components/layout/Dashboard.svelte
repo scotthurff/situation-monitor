@@ -54,12 +54,12 @@
 
 		<!-- Panels Grid - CSS Columns -->
 		<div class="panels-grid">
-			<!-- World Leaders -->
+			<!-- Narrative Tracker - First for timeliness -->
 			<div class="panel-item">
-				<WorldLeadersPanel />
+				<NarrativePanel />
 			</div>
 
-			<!-- News / Politics Column -->
+			<!-- News / Politics - High timeliness -->
 			<div class="panel-item">
 				<USPoliticsPanel limit={20} />
 			</div>
@@ -69,6 +69,24 @@
 			</div>
 
 			<div class="panel-item">
+				<AlertsPanel />
+			</div>
+
+			<div class="panel-item">
+				<AINewsPanel />
+			</div>
+
+			<!-- Pattern Analysis -->
+			<div class="panel-item">
+				<CorrelationPanel />
+			</div>
+
+			<div class="panel-item">
+				<MainCharacterPanel />
+			</div>
+
+			<!-- Legal / Legislative -->
+			<div class="panel-item">
 				<CourtCasesPanel limit={15} />
 			</div>
 
@@ -76,7 +94,7 @@
 				<CongressPanel limit={15} />
 			</div>
 
-			<!-- Markets Column -->
+			<!-- Markets - Real-time data -->
 			<div class="panel-item">
 				<MarketsPanel />
 			</div>
@@ -90,24 +108,14 @@
 			</div>
 
 			<div class="panel-item">
-				<PolymarketPanel />
-			</div>
-
-			<!-- Sector Heatmap -->
-			<div class="panel-item">
 				<SectorHeatmapPanel />
 			</div>
 
-			<!-- Main Character -->
 			<div class="panel-item">
-				<MainCharacterPanel />
+				<PolymarketPanel />
 			</div>
 
-			<!-- Alerts / Intel Column -->
-			<div class="panel-item">
-				<AlertsPanel />
-			</div>
-
+			<!-- Intel -->
 			<div class="panel-item">
 				<IntelPanel />
 			</div>
@@ -119,20 +127,6 @@
 
 			<div class="panel-item">
 				<LayoffsPanel />
-			</div>
-
-			<!-- AI News -->
-			<div class="panel-item">
-				<AINewsPanel />
-			</div>
-
-			<!-- Pattern Analysis -->
-			<div class="panel-item">
-				<CorrelationPanel />
-			</div>
-
-			<div class="panel-item">
-				<NarrativePanel />
 			</div>
 
 			<!-- Custom Monitors -->
@@ -152,6 +146,11 @@
 					/>
 				</div>
 			{/each}
+
+			<!-- World Leaders - Less time-sensitive, moved to end -->
+			<div class="panel-item">
+				<WorldLeadersPanel />
+			</div>
 		</div>
 	</main>
 
