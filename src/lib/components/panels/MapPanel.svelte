@@ -47,6 +47,7 @@
 	} | null>(null);
 	let tooltipPosition = $state({ left: 0, top: 0 });
 	let tooltipVisible = $state(false);
+	let currentTooltipKey = $state<string | null>(null); // Track which location's tooltip is active
 
 	// Weather cache
 	interface CacheEntry<T> {
@@ -171,6 +172,7 @@
 	function hideTooltip(): void {
 		tooltipVisible = false;
 		tooltipContent = null;
+		currentTooltipKey = null;
 	}
 
 	async function showEnhancedTooltip(
@@ -181,12 +183,16 @@
 		desc: string,
 		color: string
 	): Promise<void> {
+		const tooltipKey = `${lat},${lon}`; // Unique key for this location
+		currentTooltipKey = tooltipKey;
+
 		const localTime = getLocalTime(lon);
 		const lines = [`Local: ${localTime}`];
 		showTooltip(event, desc, color, lines);
 
 		const weather = await getWeather(lat, lon);
-		if (weather && tooltipVisible) {
+		// Only update if this is still the active tooltip (prevents race conditions)
+		if (weather && tooltipVisible && currentTooltipKey === tooltipKey) {
 			tooltipContent = {
 				title: desc,
 				color,
