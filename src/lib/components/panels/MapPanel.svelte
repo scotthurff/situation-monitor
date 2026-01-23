@@ -298,29 +298,38 @@
 		// Fade in new markers
 		enterGroups.transition().duration(300).style('opacity', 1);
 
-		// Add tooltip handlers - bind data directly to hit area
+		// Add tooltip handlers - bind data directly to hit area and label
 		allGroups.each(function(d: DynamicMarker) {
 			const group = d3.select(this);
 			const hitArea = group.select('.dynamic-hit');
+			const label = group.select('.dynamic-label');
+
+			const handleMouseEnter = (event: MouseEvent) => {
+				const color = SEVERITY_COLORS[d.severity] || '#00ff88';
+				const itemCount = d.items.length;
+				const lines = [
+					`${d.count} mention${d.count > 1 ? 's' : ''} in news`,
+					`Last: ${formatTimeAgo(d.lastSeen)}`
+				];
+				// Add first few news headlines
+				d.items.slice(0, 3).forEach((item) => {
+					const title = item.title.length > 40 ? item.title.slice(0, 40) + '...' : item.title;
+					lines.push(`• ${title}`);
+				});
+				if (itemCount > 3) {
+					lines.push(`+${itemCount - 3} more`);
+				}
+				showTooltip(event, d.name.toUpperCase(), color, lines);
+			};
 
 			hitArea
-				.on('mouseenter', (event: MouseEvent) => {
-					const color = SEVERITY_COLORS[d.severity] || '#00ff88';
-					const itemCount = d.items.length;
-					const lines = [
-						`${d.count} mention${d.count > 1 ? 's' : ''} in news`,
-						`Last: ${formatTimeAgo(d.lastSeen)}`
-					];
-					// Add first few news headlines
-					d.items.slice(0, 3).forEach((item) => {
-						const title = item.title.length > 40 ? item.title.slice(0, 40) + '...' : item.title;
-						lines.push(`• ${title}`);
-					});
-					if (itemCount > 3) {
-						lines.push(`+${itemCount - 3} more`);
-					}
-					showTooltip(event, d.name.toUpperCase(), color, lines);
-				})
+				.on('mouseenter', handleMouseEnter)
+				.on('mousemove', moveTooltip)
+				.on('mouseleave', hideTooltip);
+
+			label
+				.style('cursor', 'pointer')
+				.on('mouseenter', handleMouseEnter)
 				.on('mousemove', moveTooltip)
 				.on('mouseleave', hideTooltip);
 		});
@@ -495,7 +504,11 @@
 						.attr('fill', '#00aaff')
 						.attr('font-size', '5px')
 						.attr('font-family', 'monospace')
-						.text(cp.name.toUpperCase());
+						.style('cursor', 'pointer')
+						.text(cp.name.toUpperCase())
+						.on('mouseenter', (event: MouseEvent) => showTooltip(event, cp.desc, '#00aaff'))
+						.on('mousemove', moveTooltip)
+						.on('mouseleave', hideTooltip);
 					mapGroup
 						.append('circle')
 						.attr('cx', x)
@@ -609,7 +622,13 @@
 						.attr('fill', color)
 						.attr('font-size', '5px')
 						.attr('font-family', 'monospace')
-						.text(h.name.toUpperCase());
+						.style('cursor', 'pointer')
+						.text(h.name.toUpperCase())
+						.on('mouseenter', (event: MouseEvent) =>
+							showEnhancedTooltip(event, h.name, h.lat, h.lon, h.desc, color)
+						)
+						.on('mousemove', moveTooltip)
+						.on('mouseleave', hideTooltip);
 					// Hit area
 					mapGroup
 						.append('circle')
