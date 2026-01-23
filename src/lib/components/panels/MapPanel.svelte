@@ -13,6 +13,8 @@
 		THREAT_COLORS,
 		WEATHER_CODES
 	} from '$lib/config/map';
+	import { newsStore, mapMarkerStore } from '$lib/stores';
+	import type { DynamicMarker } from '$lib/types';
 
 	interface Props {
 		loading?: boolean;
@@ -20,6 +22,9 @@
 	}
 
 	let { loading = false, error = null }: Props = $props();
+
+	// Track dynamic markers for reactive updates
+	let dynamicMarkersGroup: ReturnType<typeof import('d3').select> | null = null;
 
 	let mapContainer: HTMLDivElement;
 	/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -193,6 +198,179 @@
 		}
 	}
 
+	// Severity to color mapping for dynamic markers
+	const SEVERITY_COLORS: Record<string, string> = {
+		critical: '#ff0000',
+		high: '#ff4444',
+		medium: '#ffcc00',
+		low: '#00ff88'
+	};
+
+	// Check if a marker is near a static hotspot (within ~1 degree)
+	function isNearStaticHotspot(lat: number, lon: number): boolean {
+		const threshold = 1.5; // degrees
+		return HOTSPOTS.some(
+			(h) => Math.abs(h.lat - lat) < threshold && Math.abs(h.lon - lon) < threshold
+		);
+	}
+
+	/**
+	 * Render dynamic news-driven markers
+	 * Uses D3 data join for enter/update/exit pattern
+	 */
+	function renderDynamicMarkers(): void {
+		if (!dynamicMarkersGroup || !projection || !d3Module) return;
+
+		// Filter out markers that overlap with static hotspots (by proximity)
+		const markers = mapMarkerStore.markers.filter(
+			(m) => !isNearStaticHotspot(m.lat, m.lon)
+		);
+		const d3 = d3Module;
+
+		// Data join for marker groups
+		const markerGroups = dynamicMarkersGroup
+			.selectAll<SVGGElement, DynamicMarker>('.dynamic-marker')
+			.data(markers, (d: DynamicMarker) => d.id);
+
+		// EXIT: Remove old markers with fade out
+		markerGroups.exit().transition().duration(300).style('opacity', 0).remove();
+
+		// ENTER: Create new markers
+		const enterGroups = markerGroups
+			.enter()
+			.append('g')
+			.attr('class', 'dynamic-marker')
+			.style('opacity', 0);
+
+		// Add pulsing outer circle (news indicator) - smaller to avoid overlap
+		enterGroups
+			.append('circle')
+			.attr('class', 'dynamic-pulse')
+			.attr('r', (d: DynamicMarker) => Math.min(3 + d.count * 0.3, 6))
+			.attr('fill', (d: DynamicMarker) => SEVERITY_COLORS[d.severity] || '#00ff88')
+			.attr('fill-opacity', 0.25);
+
+		// Add inner dot - smaller
+		enterGroups
+			.append('circle')
+			.attr('class', 'dynamic-inner')
+			.attr('r', (d: DynamicMarker) => Math.min(1.5 + d.count * 0.2, 3))
+			.attr('fill', (d: DynamicMarker) => SEVERITY_COLORS[d.severity] || '#00ff88');
+
+		// Add location label (like static hotspots)
+		enterGroups
+			.append('text')
+			.attr('class', 'dynamic-label')
+			.attr('x', 8)
+			.attr('y', 3)
+			.attr('fill', (d: DynamicMarker) => SEVERITY_COLORS[d.severity] || '#00ff88')
+			.attr('font-size', '5px')
+			.attr('font-family', 'monospace')
+			.text((d: DynamicMarker) => d.name.toUpperCase());
+
+		// Add hit area for tooltip
+		enterGroups
+			.append('circle')
+			.attr('class', 'dynamic-hit')
+			.attr('r', 6)
+			.attr('fill', 'transparent')
+			.style('cursor', 'pointer');
+
+		// ENTER + UPDATE: Position all markers
+		const allGroups = enterGroups.merge(markerGroups);
+
+		allGroups.attr('transform', (d: DynamicMarker) => {
+			const [x, y] = projection([d.lon, d.lat]) || [0, 0];
+			return `translate(${x},${y})`;
+		});
+
+		// Update sizes based on count
+		allGroups
+			.select('.dynamic-pulse')
+			.attr('r', (d: DynamicMarker) => Math.min(3 + d.count * 0.3, 6))
+			.attr('fill', (d: DynamicMarker) => SEVERITY_COLORS[d.severity] || '#00ff88');
+
+		allGroups
+			.select('.dynamic-inner')
+			.attr('r', (d: DynamicMarker) => Math.min(1.5 + d.count * 0.2, 3))
+			.attr('fill', (d: DynamicMarker) => SEVERITY_COLORS[d.severity] || '#00ff88');
+
+		// Fade in new markers
+		enterGroups.transition().duration(300).style('opacity', 1);
+
+		// Add tooltip handlers - bind data directly to hit area
+		allGroups.each(function(d: DynamicMarker) {
+			const group = d3.select(this);
+			const hitArea = group.select('.dynamic-hit');
+
+			hitArea
+				.on('mouseenter', (event: MouseEvent) => {
+					const color = SEVERITY_COLORS[d.severity] || '#00ff88';
+					const itemCount = d.items.length;
+					const lines = [
+						`${d.count} mention${d.count > 1 ? 's' : ''} in news`,
+						`Last: ${formatTimeAgo(d.lastSeen)}`
+					];
+					// Add first few news headlines
+					d.items.slice(0, 3).forEach((item) => {
+						const title = item.title.length > 40 ? item.title.slice(0, 40) + '...' : item.title;
+						lines.push(`• ${title}`);
+					});
+					if (itemCount > 3) {
+						lines.push(`+${itemCount - 3} more`);
+					}
+					showTooltip(event, d.name.toUpperCase(), color, lines);
+				})
+				.on('mousemove', moveTooltip)
+				.on('mouseleave', hideTooltip);
+		});
+	}
+
+	/**
+	 * Format time ago string
+	 */
+	function formatTimeAgo(date: Date): string {
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		const diffMins = Math.floor(diffMs / 60000);
+		if (diffMins < 60) return `${diffMins}m ago`;
+		const diffHours = Math.floor(diffMins / 60);
+		if (diffHours < 24) return `${diffHours}h ago`;
+		const diffDays = Math.floor(diffHours / 24);
+		return `${diffDays}d ago`;
+	}
+
+	// Track last processed news count to avoid re-processing
+	let lastNewsCount = 0;
+	let lastMarkerCount = 0;
+
+	// Reactive effect: refresh markers when news changes (with guard)
+	$effect(() => {
+		const newsItems = newsStore.news;
+		const currentCount = newsItems.length;
+
+		// Only refresh if news count actually changed
+		if (currentCount > 0 && currentCount !== lastNewsCount) {
+			lastNewsCount = currentCount;
+			// Use setTimeout to avoid blocking the main thread
+			setTimeout(() => {
+				mapMarkerStore.refresh(newsItems);
+			}, 100);
+		}
+	});
+
+	// Reactive effect: re-render when markers change (with guard)
+	$effect(() => {
+		const markers = mapMarkerStore.markers;
+		const currentMarkerCount = markers.length;
+
+		// Only re-render if marker count changed and we're initialized
+		if (dynamicMarkersGroup && projection && d3Module && currentMarkerCount !== lastMarkerCount) {
+			lastMarkerCount = currentMarkerCount;
+			renderDynamicMarkers();
+		}
+	});
+
 	async function initMap(): Promise<void> {
 		const d3 = await import('d3');
 		d3Module = d3;
@@ -322,7 +500,7 @@
 						.append('circle')
 						.attr('cx', x)
 						.attr('cy', y)
-						.attr('r', 10)
+						.attr('r', 6)
 						.attr('fill', 'transparent')
 						.attr('class', 'hotspot-hit')
 						.on('mouseenter', (event: MouseEvent) => showTooltip(event, cp.desc, '#00aaff'))
@@ -347,7 +525,7 @@
 						.append('circle')
 						.attr('cx', x)
 						.attr('cy', y)
-						.attr('r', 10)
+						.attr('r', 6)
 						.attr('fill', 'transparent')
 						.attr('class', 'hotspot-hit')
 						.on('mouseenter', (event: MouseEvent) => showTooltip(event, cl.desc, '#aa44ff'))
@@ -379,7 +557,7 @@
 						.append('circle')
 						.attr('cx', x)
 						.attr('cy', y)
-						.attr('r', 10)
+						.attr('r', 6)
 						.attr('fill', 'transparent')
 						.attr('class', 'hotspot-hit')
 						.on('mouseenter', (event: MouseEvent) => showTooltip(event, ns.desc, '#ffff00'))
@@ -398,7 +576,7 @@
 						.append('circle')
 						.attr('cx', x)
 						.attr('cy', y)
-						.attr('r', 10)
+						.attr('r', 6)
 						.attr('fill', 'transparent')
 						.attr('class', 'hotspot-hit')
 						.on('mouseenter', (event: MouseEvent) => showTooltip(event, mb.desc, '#ff00ff'))
@@ -437,7 +615,7 @@
 						.append('circle')
 						.attr('cx', x)
 						.attr('cy', y)
-						.attr('r', 12)
+						.attr('r', 6)
 						.attr('fill', 'transparent')
 						.attr('class', 'hotspot-hit')
 						.on('mouseenter', (event: MouseEvent) =>
@@ -447,6 +625,12 @@
 						.on('mouseleave', hideTooltip);
 				}
 			});
+
+			// Create dynamic markers group (layered on top of static markers)
+			dynamicMarkersGroup = mapGroup.append('g').attr('id', 'dynamicMarkers');
+
+			// Initial render of dynamic markers
+			renderDynamicMarkers();
 		} catch (err) {
 			console.error('Failed to load map data:', err);
 		}
@@ -494,18 +678,7 @@
 			<button class="zoom-btn" onclick={zoomOut} title="Zoom out">−</button>
 			<button class="zoom-btn" onclick={resetZoom} title="Reset">⟲</button>
 		</div>
-		<div class="map-legend">
-			<div class="legend-item">
-				<span class="legend-dot high"></span> High
 			</div>
-			<div class="legend-item">
-				<span class="legend-dot elevated"></span> Elevated
-			</div>
-			<div class="legend-item">
-				<span class="legend-dot low"></span> Low
-			</div>
-		</div>
-	</div>
 </Panel>
 
 <style>
@@ -568,44 +741,6 @@
 		color: #fff;
 	}
 
-	.map-legend {
-		position: absolute;
-		top: 0.5rem;
-		right: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		background: rgba(10, 10, 10, 0.8);
-		padding: 0.3rem 0.5rem;
-		border-radius: 4px;
-		font-size: 0.55rem;
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		color: #888;
-	}
-
-	.legend-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-	}
-
-	.legend-dot.high {
-		background: #ff4444;
-	}
-
-	.legend-dot.elevated {
-		background: #ffcc00;
-	}
-
-	.legend-dot.low {
-		background: #00ff88;
-	}
-
 	/* Pulse animation for hotspots */
 	:global(.pulse) {
 		animation: pulse 2s ease-in-out infinite;
@@ -624,6 +759,27 @@
 	}
 
 	:global(.hotspot-hit) {
+		cursor: pointer;
+	}
+
+	/* Dynamic marker animations */
+	:global(.dynamic-pulse) {
+		animation: dynamic-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes dynamic-pulse {
+		0%,
+		100% {
+			opacity: 0.3;
+			transform: scale(1);
+		}
+		50% {
+			opacity: 0.15;
+			transform: scale(1.5);
+		}
+	}
+
+	:global(.dynamic-hit) {
 		cursor: pointer;
 	}
 </style>

@@ -88,6 +88,7 @@ export interface GovContract {
 	description: string;
 	awardDate: Date;
 	type: 'contract' | 'grant' | 'modification';
+	link?: string;
 }
 
 // Layoff announcement
@@ -99,6 +100,7 @@ export interface Layoff {
 	sector: string;
 	date: Date;
 	source: string;
+	link?: string;
 }
 
 // Polymarket prediction
@@ -524,4 +526,24 @@ export interface TrackedEntity {
 	relatedEntities?: string[];
 	lastMentioned: Date;
 	firstSeen: Date;
+}
+
+// ============================================
+// DYNAMIC MAP MARKERS
+// ============================================
+
+// Dynamic marker source type
+export type DynamicMarkerSource = 'news' | 'gdelt' | 'custom';
+
+// Dynamic marker for news-driven map visualization
+export interface DynamicMarker {
+	id: string;
+	name: string;
+	lat: number;
+	lon: number;
+	type: DynamicMarkerSource;
+	severity: 'low' | 'medium' | 'high' | 'critical';
+	count: number; // Number of mentions/events
+	lastSeen: Date;
+	items: NewsItem[]; // Related news for drill-down
 }
