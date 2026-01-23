@@ -17,8 +17,18 @@
 	// Track expanded narrative
 	let expandedId = $state<string | null>(null);
 
-	function toggleExpanded(id: string): void {
+	function toggleExpanded(id: string, event: MouseEvent): void {
+		const isExpanding = expandedId !== id;
 		expandedId = expandedId === id ? null : id;
+
+		// Scroll the clicked item into view when expanding
+		if (isExpanding && event.currentTarget instanceof HTMLElement) {
+			const element = event.currentTarget;
+			// Small delay to let the DOM update with expanded content
+			setTimeout(() => {
+				element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			}, 50);
+		}
 	}
 
 	function getStageClass(stage: Narrative['stage']): string {
@@ -109,7 +119,7 @@
 						<button
 							class="narrative-item {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
-							onclick={() => toggleExpanded(narrative.id)}
+							onclick={(e) => toggleExpanded(narrative.id, e)}
 						>
 							<div class="narrative-header">
 								<span class="narrative-topic">{narrative.topic}</span>
@@ -174,7 +184,7 @@
 						<button
 							class="narrative-item {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
-							onclick={() => toggleExpanded(narrative.id)}
+							onclick={(e) => toggleExpanded(narrative.id, e)}
 						>
 							<div class="narrative-header">
 								<span class="narrative-topic">{narrative.topic}</span>
@@ -225,7 +235,7 @@
 						<button
 							class="narrative-item declining {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
-							onclick={() => toggleExpanded(narrative.id)}
+							onclick={(e) => toggleExpanded(narrative.id, e)}
 						>
 							<div class="narrative-header">
 								<span class="narrative-topic">{narrative.topic}</span>
