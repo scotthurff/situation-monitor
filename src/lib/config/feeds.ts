@@ -29,6 +29,9 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 
 	// US-specific political news - comprehensive coverage across the spectrum
 	uspolitics: [
+		// Curated Aggregators
+		{ name: 'Memeorandum', url: 'http://www.memeorandum.com/feed.xml', priority: 1, bias: 'center' },
+
 		// Primary US Politics Sources
 		{ name: 'Politico', url: 'https://www.politico.com/rss/politicopicks.xml', priority: 1, bias: 'center' },
 		{ name: 'The Hill', url: 'https://thehill.com/feed/', priority: 1, bias: 'center' },
@@ -92,6 +95,7 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 	],
 
 	tech: [
+		{ name: 'Techmeme', url: 'https://www.techmeme.com/feed.xml', priority: 1 },
 		{ name: 'Hacker News', url: 'https://hnrss.org/frontpage', priority: 1 },
 		{ name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/technology-lab', priority: 2 },
 		{ name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', priority: 2 },
