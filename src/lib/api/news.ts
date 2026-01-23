@@ -2,19 +2,33 @@
  * News API - Fetches and parses RSS feeds
  */
 
+import { browser } from '$app/environment';
 import { newsClient } from '$lib/services';
 import { FEEDS, INTEL_SOURCES, fetchWithProxy, CACHE_TTLS, logger } from '$lib/config';
 import { detectAlertLevel, detectRegions, detectSentiment } from '$lib/config/keywords';
 import type { NewsItem, NewsCategory } from '$lib/types';
 
 /**
+ * Get DOMParser that works in both browser and server
+ */
+async function getDOMParser(): Promise<typeof DOMParser> {
+	if (browser) {
+		return DOMParser;
+	}
+	// Server-side: use @xmldom/xmldom
+	const { DOMParser: XMLDOMParser } = await import('@xmldom/xmldom');
+	return XMLDOMParser as unknown as typeof DOMParser;
+}
+
+/**
  * Parse RSS XML into news items
  */
-function parseRSS(xml: string, source: string, category: NewsCategory): NewsItem[] {
+async function parseRSS(xml: string, source: string, category: NewsCategory): Promise<NewsItem[]> {
 	const items: NewsItem[] = [];
 
 	try {
-		const parser = new DOMParser();
+		const DOMParserClass = await getDOMParser();
+		const parser = new DOMParserClass();
 		const doc = parser.parseFromString(xml, 'text/xml');
 
 		// Check for parse errors
@@ -79,7 +93,7 @@ async function fetchFeed(
 	try {
 		const response = await fetchWithProxy(url);
 		const xml = await response.text();
-		return parseRSS(xml, source, category);
+		return await parseRSS(xml, source, category);
 	} catch (err) {
 		logger.warn('News', `Failed to fetch ${source}:`, err);
 		return [];
