@@ -277,7 +277,7 @@
 						.attr('x', x)
 						.attr('y', y)
 						.attr('fill', '#1a4a40')
-						.attr('font-size', '10px')
+						.attr('font-size', '6px')
 						.attr('font-family', 'monospace')
 						.attr('text-anchor', 'middle')
 						.attr('opacity', 0.6)
@@ -325,9 +325,9 @@
 						.attr('x', x + 8)
 						.attr('y', y + 3)
 						.attr('fill', '#00aaff')
-						.attr('font-size', '7px')
+						.attr('font-size', '5px')
 						.attr('font-family', 'monospace')
-						.text(cp.name);
+						.text(cp.name.toUpperCase());
 					mapGroup
 						.append('circle')
 						.attr('cx', x)
@@ -439,9 +439,9 @@
 						.attr('x', x + 8)
 						.attr('y', y + 3)
 						.attr('fill', color)
-						.attr('font-size', '8px')
+						.attr('font-size', '5px')
 						.attr('font-family', 'monospace')
-						.text(h.name);
+						.text(h.name.toUpperCase());
 					// Hit area
 					mapGroup
 						.append('circle')
