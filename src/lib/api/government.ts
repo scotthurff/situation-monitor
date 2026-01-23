@@ -210,24 +210,25 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 		// USASpending uses POST with a JSON body
 		const url = `${API_URLS.usaspending}/search/spending_by_award/`;
 
-		// Get recent large contracts (>$50M)
+		// Get recent significant contracts (>$10M) from last 7 days
 		const body = {
 			filters: {
 				award_type_codes: ['A', 'B', 'C', 'D'], // Contract types
 				time_period: [
 					{
-						start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+						start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
 						end_date: new Date().toISOString().split('T')[0]
 					}
 				],
 				award_amounts: [
 					{
-						lower_bound: 50000000 // >$50M
+						lower_bound: 10000000 // >$10M for more results
 					}
 				]
 			},
 			fields: [
 				'Award ID',
+				'generated_internal_id',
 				'Recipient Name',
 				'Award Amount',
 				'Awarding Agency',
@@ -236,7 +237,7 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 				'Award Type'
 			],
 			page: 1,
-			limit: 10,
+			limit: 15,
 			sort: 'Award Amount',
 			order: 'desc'
 		};
@@ -261,15 +262,20 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 			return MOCK_CONTRACTS;
 		}
 
-		const contracts: GovContract[] = awards.map((award: Record<string, unknown>, index: number) => ({
-			id: `gc-${index + 1}`,
-			agency: getAgencyAbbrev(String(award['Awarding Agency'] || '')),
-			vendor: String(award['Recipient Name'] || 'Unknown'),
-			value: Number(award['Award Amount']) || 0,
-			description: String(award['Description'] || 'Federal contract'),
-			awardDate: new Date(String(award['Start Date']) || Date.now()),
-			type: getContractType(String(award['Award Type'] || ''))
-		}));
+		// USASpending returns field names as requested, with spaces
+		const contracts: GovContract[] = awards.map((award: Record<string, unknown>, index: number) => {
+			const internalId = String(award['generated_internal_id'] || '');
+			return {
+				id: `gc-${index + 1}`,
+				agency: getAgencyAbbrev(String(award['Awarding Agency'] || '')),
+				vendor: cleanVendorName(String(award['Recipient Name'] || 'Unknown')),
+				value: Number(award['Award Amount']) || 0,
+				description: cleanDescription(String(award['Description'] || 'Federal contract')),
+				awardDate: new Date(String(award['Start Date']) || Date.now()),
+				type: getContractType(String(award['Award Type'] || '')),
+				link: internalId ? `https://www.usaspending.gov/award/${internalId}` : undefined
+			};
+		});
 
 		logger.log('Government', `Successfully fetched ${contracts.length} contracts`);
 		return contracts;
@@ -277,6 +283,29 @@ export async function fetchGovContracts(): Promise<GovContract[]> {
 		logger.error('Government', 'Failed to fetch contracts:', error);
 		return MOCK_CONTRACTS;
 	}
+}
+
+/**
+ * Clean vendor name for display
+ */
+function cleanVendorName(name: string): string {
+	// Remove common suffixes and clean up
+	return name
+		.replace(/\s+(INC\.?|LLC|CORP\.?|CORPORATION|LTD\.?|L\.?L\.?C\.?|CO\.?)$/i, '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, 40);
+}
+
+/**
+ * Clean description for display
+ */
+function cleanDescription(desc: string): string {
+	// Truncate and clean up
+	return desc
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, 100);
 }
 
 /**

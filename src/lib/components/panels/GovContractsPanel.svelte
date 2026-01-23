@@ -59,15 +59,27 @@
 	{:else}
 		<div class="contracts-list">
 			{#each contracts as contract (contract.id)}
-				<div class="contract-item">
-					<div class="contract-header">
-						<span class="contract-agency">{contract.agency}</span>
-						<span class="contract-type {getTypeClass(contract.type)}">{contract.type}</span>
+				{#if contract.link}
+					<a href={contract.link} target="_blank" rel="noopener noreferrer" class="contract-item contract-link">
+						<div class="contract-header">
+							<span class="contract-agency">{contract.agency}</span>
+							<span class="contract-type {getTypeClass(contract.type)}">{contract.type}</span>
+						</div>
+						<div class="contract-vendor">{contract.vendor}</div>
+						<div class="contract-desc">{contract.description}</div>
+						<div class="contract-value">{formatValue(contract.value)}</div>
+					</a>
+				{:else}
+					<div class="contract-item">
+						<div class="contract-header">
+							<span class="contract-agency">{contract.agency}</span>
+							<span class="contract-type {getTypeClass(contract.type)}">{contract.type}</span>
+						</div>
+						<div class="contract-vendor">{contract.vendor}</div>
+						<div class="contract-desc">{contract.description}</div>
+						<div class="contract-value">{formatValue(contract.value)}</div>
 					</div>
-					<div class="contract-vendor">{contract.vendor}</div>
-					<div class="contract-desc">{contract.description}</div>
-					<div class="contract-value">{formatValue(contract.value)}</div>
-				</div>
+				{/if}
 			{/each}
 		</div>
 	{/if}
@@ -154,5 +166,20 @@
 		color: var(--text-muted);
 		font-size: 0.7rem;
 		padding: 1rem;
+	}
+
+	.contract-link {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+		transition: background 0.15s;
+	}
+
+	.contract-link:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.contract-link:hover .contract-vendor {
+		color: var(--accent);
 	}
 </style>
