@@ -53,18 +53,29 @@
 	{:else}
 		<div class="layoffs-list">
 			{#each layoffs as layoff (layoff.id)}
-				<div class="layoff-item">
-					<div class="layoff-header">
-						<span class="layoff-company">{layoff.company}</span>
-						<span class="layoff-count">-{formatCount(layoff.count)}</span>
+				{#if layoff.link}
+					<a href={layoff.link} target="_blank" rel="noopener noreferrer" class="layoff-item layoff-link">
+						<div class="layoff-header">
+							<span class="layoff-company">{layoff.company}</span>
+							<span class="layoff-count">-{formatCount(layoff.count)}</span>
+						</div>
+						<div class="layoff-details">
+							<span class="layoff-sector {getSectorClass(layoff.sector)}">{layoff.sector}</span>
+							<span class="layoff-source">{layoff.source}</span>
+						</div>
+					</a>
+				{:else}
+					<div class="layoff-item">
+						<div class="layoff-header">
+							<span class="layoff-company">{layoff.company}</span>
+							<span class="layoff-count">-{formatCount(layoff.count)}</span>
+						</div>
+						<div class="layoff-details">
+							<span class="layoff-sector {getSectorClass(layoff.sector)}">{layoff.sector}</span>
+							<span class="layoff-source">{layoff.source}</span>
+						</div>
 					</div>
-					<div class="layoff-details">
-						<span class="layoff-sector {getSectorClass(layoff.sector)}">{layoff.sector}</span>
-						{#if layoff.location}
-							<span class="layoff-location">{layoff.location}</span>
-						{/if}
-					</div>
-				</div>
+				{/if}
 			{/each}
 		</div>
 	{/if}
@@ -147,9 +158,24 @@
 		color: var(--text-dim);
 	}
 
-	.layoff-location {
+	.layoff-source {
 		font-size: 0.55rem;
 		color: var(--text-muted);
+	}
+
+	.layoff-link {
+		display: block;
+		text-decoration: none;
+		color: inherit;
+		transition: background 0.15s;
+	}
+
+	.layoff-link:hover {
+		background: rgba(255, 255, 255, 0.03);
+	}
+
+	.layoff-link:hover .layoff-company {
+		color: var(--accent);
 	}
 
 	.empty-state {

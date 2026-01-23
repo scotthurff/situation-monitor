@@ -1,166 +1,93 @@
 /**
- * Layoffs API - Parse news for layoff announcements
+ * Layoffs API - Aggregate layoff news from multiple RSS sources
  *
- * Parses Google News RSS and other sources for layoff announcements.
- * Extracts company names, counts, and sectors from headlines.
+ * Uses Google News RSS with multiple search queries to capture
+ * layoff announcements. Extracts company names, counts, and sectors.
  */
 
 import { logger, fetchWithProxy } from '$lib/config';
 import type { Layoff } from '$lib/types';
 
 /**
- * Mock layoffs data for fallback
+ * RSS search queries for layoff news
  */
-const MOCK_LAYOFFS: Layoff[] = [
-	{
-		id: 'lo-1',
-		company: 'Intel',
-		count: 15000,
-		location: 'Global',
-		sector: 'Semiconductors',
-		date: new Date(),
-		source: 'Company announcement'
-	},
-	{
-		id: 'lo-2',
-		company: 'Chevron',
-		count: 8000,
-		location: 'Houston, TX',
-		sector: 'Energy',
-		date: new Date(),
-		source: 'SEC filing'
-	},
-	{
-		id: 'lo-3',
-		company: 'CNN',
-		count: 500,
-		location: 'Atlanta, GA',
-		sector: 'Media',
-		date: new Date(),
-		source: 'News report'
-	},
-	{
-		id: 'lo-4',
-		company: 'Salesforce',
-		count: 2000,
-		location: 'San Francisco',
-		sector: 'Software',
-		date: new Date(),
-		source: 'Company announcement'
-	},
-	{
-		id: 'lo-5',
-		company: 'Nike',
-		count: 1600,
-		location: 'Global',
-		sector: 'Retail',
-		date: new Date(),
-		source: 'SEC filing'
-	},
-	{
-		id: 'lo-6',
-		company: 'FedEx',
-		count: 3500,
-		location: 'Memphis, TN',
-		sector: 'Logistics',
-		date: new Date(),
-		source: 'Company announcement'
-	},
-	{
-		id: 'lo-7',
-		company: 'Match Group',
-		count: 800,
-		location: 'Dallas, TX',
-		sector: 'Tech',
-		date: new Date(),
-		source: 'News report'
-	}
+const LAYOFF_QUERIES = [
+	'tech layoffs 2025',
+	'"job cuts" company',
+	'"workforce reduction"',
+	'layoffs announced',
+	'"laying off" employees'
 ];
 
 /**
  * Sector keywords for classification
  */
 const SECTOR_KEYWORDS: Record<string, string[]> = {
-	Tech: ['tech', 'software', 'app', 'digital', 'saas', 'cloud', 'data', 'ai', 'startup'],
-	'Semiconductors': ['chip', 'semiconductor', 'intel', 'amd', 'nvidia', 'qualcomm', 'fabrication'],
-	Finance: ['bank', 'finance', 'investment', 'trading', 'fintech', 'insurance', 'asset'],
-	Retail: ['retail', 'store', 'shop', 'ecommerce', 'consumer', 'brand', 'merchandise'],
-	Media: ['media', 'news', 'entertainment', 'streaming', 'broadcast', 'publishing', 'content'],
-	Healthcare: ['health', 'medical', 'pharma', 'biotech', 'hospital', 'drug', 'therapeutic'],
-	Energy: ['oil', 'gas', 'energy', 'solar', 'wind', 'utility', 'petroleum', 'refinery'],
-	Automotive: ['auto', 'car', 'vehicle', 'ev', 'electric vehicle', 'motor', 'automotive'],
-	Logistics: ['shipping', 'logistics', 'delivery', 'freight', 'warehouse', 'supply chain'],
-	Manufacturing: ['manufacturing', 'factory', 'industrial', 'production', 'assembly']
+	Tech: ['tech', 'software', 'app', 'digital', 'saas', 'cloud', 'ai', 'startup', 'meta', 'google', 'microsoft', 'amazon'],
+	Finance: ['bank', 'finance', 'investment', 'trading', 'fintech', 'insurance', 'goldman', 'jpmorgan', 'citi'],
+	Retail: ['retail', 'store', 'walmart', 'target', 'nike', 'amazon', 'ecommerce'],
+	Media: ['media', 'news', 'entertainment', 'streaming', 'disney', 'netflix', 'cnn', 'paramount'],
+	Healthcare: ['health', 'medical', 'pharma', 'biotech', 'hospital', 'pfizer', 'johnson'],
+	Automotive: ['auto', 'car', 'tesla', 'ford', 'gm', 'rivian', 'ev'],
+	Semiconductors: ['chip', 'semiconductor', 'intel', 'amd', 'nvidia', 'qualcomm', 'tsmc'],
+	Energy: ['oil', 'gas', 'energy', 'solar', 'chevron', 'exxon', 'shell'],
+	Logistics: ['shipping', 'logistics', 'fedex', 'ups', 'delivery'],
+	Telecom: ['telecom', 'verizon', 'at&t', 't-mobile', '5g']
 };
 
 /**
- * Company to sector mapping for known companies
+ * Known company patterns for better extraction
  */
-const COMPANY_SECTORS: Record<string, string> = {
-	intel: 'Semiconductors',
-	amd: 'Semiconductors',
-	nvidia: 'Semiconductors',
-	google: 'Tech',
-	meta: 'Tech',
-	facebook: 'Tech',
-	microsoft: 'Tech',
-	amazon: 'Tech',
-	apple: 'Tech',
-	salesforce: 'Software',
-	oracle: 'Software',
-	cnn: 'Media',
-	disney: 'Media',
-	netflix: 'Media',
-	spotify: 'Media',
-	tesla: 'Automotive',
-	ford: 'Automotive',
-	gm: 'Automotive',
-	jpmorgan: 'Finance',
-	goldman: 'Finance',
-	'wells fargo': 'Finance',
-	fedex: 'Logistics',
-	ups: 'Logistics',
-	nike: 'Retail',
-	walmart: 'Retail',
-	target: 'Retail',
-	chevron: 'Energy',
-	exxon: 'Energy',
-	shell: 'Energy'
-};
+const KNOWN_COMPANIES = [
+	'Meta', 'Google', 'Microsoft', 'Amazon', 'Apple', 'Tesla', 'Intel', 'IBM',
+	'Salesforce', 'Oracle', 'Cisco', 'Dell', 'HP', 'Adobe', 'Netflix', 'Spotify',
+	'Uber', 'Lyft', 'Airbnb', 'DoorDash', 'Snap', 'Twitter', 'X Corp', 'PayPal',
+	'Block', 'Square', 'Stripe', 'Coinbase', 'Robinhood', 'Zoom', 'Slack',
+	'Disney', 'Warner Bros', 'Paramount', 'CNN', 'Fox', 'NBC', 'CBS',
+	'Goldman Sachs', 'Morgan Stanley', 'JPMorgan', 'Citigroup', 'Bank of America',
+	'Ford', 'GM', 'Rivian', 'Lucid', 'Boeing', 'Lockheed', 'Raytheon',
+	'Pfizer', 'Moderna', 'Johnson & Johnson', 'CVS', 'Walgreens',
+	'Walmart', 'Target', 'Best Buy', 'Nike', 'Adidas', 'Gap',
+	'FedEx', 'UPS', 'DHL', 'Chevron', 'Exxon', 'Shell', 'BP',
+	'Verizon', 'AT&T', 'T-Mobile', 'Comcast', 'Charter'
+];
 
 /**
- * Extract layoff count from headline
+ * Extract layoff count from text
  */
 function extractLayoffCount(text: string): number | null {
-	// Match patterns like "1,000 jobs", "15000 employees", "1.5k workers"
+	const lowerText = text.toLowerCase();
+
+	// Patterns for extracting numbers
 	const patterns = [
-		/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(?:thousand|k)?\s*(?:jobs?|employees?|workers?|staff|people|positions?|roles?)/i,
-		/(?:cut|cutting|slash|slashing|eliminate|eliminating|axe|axing|lay\s*off|laying\s*off)\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(?:thousand|k)?/i,
-		/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(?:thousand|k)?\s*(?:cut|layoff|laid\s*off|reduction)/i,
-		/(\d+(?:\.\d+)?)\s*%\s*(?:of\s*)?(?:workforce|staff|employees)/i
+		// "1,000 jobs" or "1000 employees"
+		/(\d{1,3}(?:,\d{3})*)\s*(?:jobs?|employees?|workers?|staff|people|positions?|roles?)/i,
+		// "cuts 1,000" or "laying off 500"
+		/(?:cut(?:ting)?|lay(?:ing)?\s*off|eliminat(?:e|ing)|slash(?:ing)?|ax(?:e|ing)?)\s*(\d{1,3}(?:,\d{3})*)/i,
+		// "1,000 layoffs"
+		/(\d{1,3}(?:,\d{3})*)\s*layoffs?/i,
+		// "about 1,000" or "nearly 500"
+		/(?:about|nearly|around|approximately|up to)\s*(\d{1,3}(?:,\d{3})*)/i
 	];
 
 	for (const pattern of patterns) {
 		const match = text.match(pattern);
 		if (match) {
-			let num = match[1].replace(/,/g, '');
-			let value = parseFloat(num);
+			const numStr = match[1].replace(/,/g, '');
+			const value = parseInt(numStr, 10);
 
-			// Handle "k" or "thousand"
-			if (text.toLowerCase().includes('thousand') || text.toLowerCase().includes('k ')) {
-				value *= 1000;
-			}
-
-			// Handle percentage (estimate based on typical company sizes)
-			if (match[0].includes('%')) {
-				// Can't determine exact count from percentage without knowing company size
-				return null;
-			}
-
-			if (value >= 50 && value <= 100000) {
-				return Math.round(value);
+			// Sanity check: reasonable layoff numbers
+			if (value >= 50 && value <= 50000) {
+				return value;
 			}
 		}
+	}
+
+	// Check for "X%" patterns and estimate
+	const percentMatch = text.match(/(\d+)\s*%\s*(?:of\s*)?(?:workforce|staff|employees)/i);
+	if (percentMatch) {
+		// Can't determine exact count without company size
+		return null;
 	}
 
 	return null;
@@ -170,38 +97,43 @@ function extractLayoffCount(text: string): number | null {
  * Extract company name from headline
  */
 function extractCompany(text: string): string | null {
-	// Remove common words and find potential company names
-	const cleanText = text
-		.replace(/layoff|layoffs|job cuts|cutting jobs|to cut|will cut|plans to|announces/gi, '')
-		.trim();
+	// Check for known companies first
+	for (const company of KNOWN_COMPANIES) {
+		if (text.toLowerCase().includes(company.toLowerCase())) {
+			return company;
+		}
+	}
 
-	// Look for company names at the start of the headline
-	const match = cleanText.match(/^([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)?)/);
-	if (match) {
-		return match[1];
+	// Try to extract from headline structure
+	// Pattern: "Company to lay off..." or "Company announces..."
+	const patterns = [
+		/^([A-Z][a-zA-Z0-9&\s]{2,20}?)(?:\s+to\s+(?:lay|cut)|announces|plans|will)/i,
+		/^([A-Z][a-zA-Z0-9&\s]{2,20}?)\s+(?:layoffs|job cuts|cutting)/i
+	];
+
+	for (const pattern of patterns) {
+		const match = text.match(pattern);
+		if (match) {
+			const name = match[1].trim();
+			// Filter out common words that aren't company names
+			if (!['The', 'More', 'Why', 'How', 'What', 'Report', 'Breaking'].includes(name)) {
+				return name;
+			}
+		}
 	}
 
 	return null;
 }
 
 /**
- * Determine sector from company name or text
+ * Determine sector from company name and text
  */
 function determineSector(company: string, text: string): string {
-	const lowerCompany = company.toLowerCase();
-	const lowerText = text.toLowerCase();
+	const combined = `${company} ${text}`.toLowerCase();
 
-	// Check known company mapping first
-	for (const [knownCompany, sector] of Object.entries(COMPANY_SECTORS)) {
-		if (lowerCompany.includes(knownCompany)) {
-			return sector;
-		}
-	}
-
-	// Check sector keywords in text
 	for (const [sector, keywords] of Object.entries(SECTOR_KEYWORDS)) {
 		for (const keyword of keywords) {
-			if (lowerText.includes(keyword)) {
+			if (combined.includes(keyword.toLowerCase())) {
 				return sector;
 			}
 		}
@@ -211,12 +143,12 @@ function determineSector(company: string, text: string): string {
 }
 
 /**
- * Parse RSS feed for layoff news
+ * Parse a single RSS feed
  */
-async function parseLayoffRSS(): Promise<Layoff[]> {
+async function parseRSS(query: string): Promise<Layoff[]> {
 	try {
-		// Google News RSS for layoff-related news
-		const rssUrl = 'https://news.google.com/rss/search?q=layoffs+OR+"job+cuts"+OR+"workforce+reduction"&hl=en-US&gl=US&ceid=US:en';
+		const encodedQuery = encodeURIComponent(query);
+		const rssUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=en-US&gl=US&ceid=US:en`;
 
 		const response = await fetchWithProxy(rssUrl);
 		if (!response.ok) {
@@ -230,56 +162,85 @@ async function parseLayoffRSS(): Promise<Layoff[]> {
 		const items = doc.querySelectorAll('item');
 		const layoffs: Layoff[] = [];
 
-		let id = 1;
-		items.forEach((item) => {
+		items.forEach((item, index) => {
 			const title = item.querySelector('title')?.textContent || '';
 			const pubDate = item.querySelector('pubDate')?.textContent;
 			const source = item.querySelector('source')?.textContent || 'News';
+			const link = item.querySelector('link')?.textContent || '';
 
-			// Extract company and count
 			const company = extractCompany(title);
 			const count = extractLayoffCount(title);
 
 			// Only include if we found both company and count
 			if (company && count) {
 				layoffs.push({
-					id: `lo-${id++}`,
+					id: `lo-${Date.now()}-${index}`,
 					company,
 					count,
 					sector: determineSector(company, title),
 					date: pubDate ? new Date(pubDate) : new Date(),
-					source
+					source,
+					link
 				});
 			}
 		});
 
 		return layoffs;
 	} catch (error) {
-		logger.warn('Layoffs', 'Failed to parse RSS:', error);
+		logger.warn('Layoffs', `Failed to parse RSS for "${query}":`, error);
 		return [];
 	}
 }
 
 /**
- * Fetch layoff data from news sources
+ * Deduplicate layoffs by company (keep highest count)
+ */
+function deduplicateLayoffs(layoffs: Layoff[]): Layoff[] {
+	const byCompany = new Map<string, Layoff>();
+
+	for (const layoff of layoffs) {
+		const key = layoff.company.toLowerCase();
+		const existing = byCompany.get(key);
+
+		if (!existing || layoff.count > existing.count) {
+			byCompany.set(key, layoff);
+		}
+	}
+
+	return Array.from(byCompany.values());
+}
+
+/**
+ * Fetch layoff data from multiple RSS sources
  */
 export async function fetchLayoffs(): Promise<Layoff[]> {
 	try {
-		logger.log('Layoffs', 'Fetching layoff news from RSS');
+		logger.log('Layoffs', 'Fetching layoff news from multiple RSS sources');
 
-		const layoffs = await parseLayoffRSS();
+		// Fetch from all queries in parallel
+		const results = await Promise.all(
+			LAYOFF_QUERIES.map(query => parseRSS(query))
+		);
 
-		if (layoffs.length >= 3) {
-			logger.log('Layoffs', `Successfully parsed ${layoffs.length} layoff announcements`);
-			return layoffs.sort((a, b) => b.count - a.count).slice(0, 15);
+		// Flatten and deduplicate
+		const allLayoffs = results.flat();
+		const uniqueLayoffs = deduplicateLayoffs(allLayoffs);
+
+		// Sort by count (largest first) and limit
+		const sorted = uniqueLayoffs
+			.sort((a, b) => b.count - a.count)
+			.slice(0, 15);
+
+		if (sorted.length > 0) {
+			logger.log('Layoffs', `Found ${sorted.length} unique layoff announcements`);
+			return sorted;
 		}
 
-		// Fall back to mock data if we didn't find enough
-		logger.warn('Layoffs', 'Not enough layoff data from RSS, using mock data');
-		return MOCK_LAYOFFS;
+		logger.warn('Layoffs', 'No layoffs found from RSS sources');
+		return [];
 	} catch (error) {
 		logger.error('Layoffs', 'Failed to fetch layoffs:', error);
-		return MOCK_LAYOFFS;
+		return [];
 	}
 }
 
@@ -287,5 +248,5 @@ export async function fetchLayoffs(): Promise<Layoff[]> {
  * Get mock layoffs (for testing)
  */
 export function getMockLayoffs(): Layoff[] {
-	return MOCK_LAYOFFS.sort((a, b) => b.count - a.count);
+	return [];
 }
