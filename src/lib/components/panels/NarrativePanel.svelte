@@ -407,8 +407,8 @@
 	}
 
 	.stage-mainstream {
-		background: rgba(255, 200, 100, 0.2);
-		color: var(--yellow);
+		background: rgba(180, 160, 100, 0.15);
+		color: #a89060;
 	}
 
 	.stage-declining {
