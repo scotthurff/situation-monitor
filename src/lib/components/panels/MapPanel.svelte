@@ -496,10 +496,10 @@
 				if (x && y) {
 					mapGroup
 						.append('rect')
-						.attr('x', x - 4)
-						.attr('y', y - 4)
-						.attr('width', 8)
-						.attr('height', 8)
+						.attr('x', x - 2.5)
+						.attr('y', y - 2.5)
+						.attr('width', 5)
+						.attr('height', 5)
 						.attr('fill', '#00aaff')
 						.attr('opacity', 0.8)
 						.attr('transform', `rotate(45,${x},${y})`);
@@ -589,7 +589,7 @@
 			MILITARY_BASES.forEach((mb) => {
 				const [x, y] = projection([mb.lon, mb.lat]) || [0, 0];
 				if (x && y) {
-					const starPath = `M${x},${y - 5} L${x + 1.5},${y - 1.5} L${x + 5},${y - 1.5} L${x + 2.5},${y + 1} L${x + 3.5},${y + 5} L${x},${y + 2.5} L${x - 3.5},${y + 5} L${x - 2.5},${y + 1} L${x - 5},${y - 1.5} L${x - 1.5},${y - 1.5} Z`;
+					const starPath = `M${x},${y - 3} L${x + 1},${y - 1} L${x + 3},${y - 1} L${x + 1.5},${y + 0.5} L${x + 2},${y + 3} L${x},${y + 1.5} L${x - 2},${y + 3} L${x - 1.5},${y + 0.5} L${x - 3},${y - 1} L${x - 1},${y - 1} Z`;
 					mapGroup.append('path').attr('d', starPath).attr('fill', '#ff00ff').attr('opacity', 0.8);
 					mapGroup
 						.append('circle')
