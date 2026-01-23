@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Panel } from '$lib/components/common';
-	import { fetchPolymarket } from '$lib/api/polymarket';
-	import type { Prediction } from '$lib/types';
+	import { marketsStore } from '$lib/stores';
 
-	let predictions: Prediction[] = $state([]);
-	let loading = $state(true);
-	let error: string | null = $state(null);
-
+	// Use store for predictions - refreshes with the rest of the dashboard
+	const predictions = $derived(marketsStore.polymarket);
+	const loading = $derived(marketsStore.isLoading && predictions.length === 0);
 	const count = $derived(predictions.length);
 
 	function formatVolume(v: number): string {
@@ -21,25 +19,16 @@
 		return Math.round(p * 100) + '%';
 	}
 
-	async function loadPredictions() {
-		loading = true;
-		error = null;
-		try {
-			predictions = await fetchPolymarket();
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load predictions';
-		} finally {
-			loading = false;
-		}
-	}
-
+	// Initial load on mount (refresh store will handle subsequent updates)
 	onMount(() => {
-		loadPredictions();
+		if (predictions.length === 0) {
+			marketsStore.fetchPolymarket();
+		}
 	});
 </script>
 
-<Panel id="polymarket" title="Polymarket" icon="📊" {count} {loading} {error}>
-	{#if predictions.length === 0 && !loading && !error}
+<Panel id="polymarket" title="Polymarket" icon="📊" {count} {loading} error={marketsStore.error}>
+	{#if predictions.length === 0 && !loading && !marketsStore.error}
 		<div class="empty-state">No predictions available</div>
 	{:else}
 		<div class="predictions-list">

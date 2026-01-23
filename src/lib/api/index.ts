@@ -48,7 +48,7 @@ export {
 	getMockBills
 } from './government';
 
-export { fetchPolymarket, getMockPredictions } from './polymarket';
+export { fetchPolymarket } from './polymarket';
 
 export { fetchLayoffs, getMockLayoffs } from './layoffs';
 

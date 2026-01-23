@@ -4,7 +4,8 @@
 
 import { fetchIndices, fetchStocks, fetchCommodities, fetchForex } from '$lib/api';
 import { fetchCryptoPrices } from '$lib/api/crypto';
-import type { MarketData, CryptoData, CommodityData } from '$lib/types';
+import { fetchPolymarket as fetchPolymarketApi } from '$lib/api/polymarket';
+import type { MarketData, CryptoData, CommodityData, Prediction } from '$lib/types';
 
 // Reactive state
 let indices = $state<MarketData[]>([]);
@@ -12,6 +13,7 @@ let stocks = $state<MarketData[]>([]);
 let commodities = $state<CommodityData[]>([]);
 let forex = $state<MarketData[]>([]);
 let crypto = $state<CryptoData[]>([]);
+let polymarket = $state<Prediction[]>([]);
 let isLoading = $state(false);
 let error = $state<string | null>(null);
 let lastUpdated = $state<Date | null>(null);
@@ -76,6 +78,18 @@ async function loadCrypto(): Promise<void> {
 }
 
 /**
+ * Fetch polymarket predictions
+ */
+async function fetchPolymarket(): Promise<void> {
+	try {
+		polymarket = await fetchPolymarketApi();
+		lastUpdated = new Date();
+	} catch (err) {
+		console.error('[MarketsStore] Failed to fetch polymarket:', err);
+	}
+}
+
+/**
  * Fetch all market data
  */
 async function fetchAllMarkets(): Promise<void> {
@@ -129,6 +143,7 @@ function clear(): void {
 	commodities = [];
 	forex = [];
 	crypto = [];
+	polymarket = [];
 	error = null;
 }
 
@@ -149,6 +164,9 @@ export const marketsStore = {
 	get crypto() {
 		return crypto;
 	},
+	get polymarket() {
+		return polymarket;
+	},
 	get isLoading() {
 		return isLoading;
 	},
@@ -164,6 +182,7 @@ export const marketsStore = {
 	fetchAllMarkets,
 	fetchCritical,
 	fetchSecondary,
+	fetchPolymarket,
 	loadIndices,
 	loadStocks,
 	loadCommodities,

@@ -74,12 +74,22 @@ async function executeSecondaryStage(): Promise<void> {
 /**
  * Execute tertiary stage (further delayed)
  * - Analysis (correlations, narratives)
+ * - Polymarket predictions
  * - Less critical data
  */
 async function executeTertiaryStage(): Promise<void> {
 	currentStage = 'tertiary';
-	// Analysis happens client-side based on news data
-	// Additional API calls could go here
+	const stageErrors: string[] = [];
+
+	await Promise.allSettled([
+		marketsStore.fetchPolymarket().catch((e) => {
+			stageErrors.push(`Polymarket: ${e.message}`);
+		})
+	]);
+
+	if (stageErrors.length > 0) {
+		errors = [...errors, ...stageErrors];
+	}
 }
 
 /**

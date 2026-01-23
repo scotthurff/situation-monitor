@@ -2,7 +2,7 @@
  * Polymarket API - Prediction market data
  *
  * Fetches real prediction market data from Polymarket's public API.
- * Falls back to Kalshi, then mock data if both fail.
+ * Falls back to Kalshi if Polymarket fails.
  */
 
 import { API_URLS, logger, fetchWithProxy } from '$lib/config';
@@ -59,92 +59,6 @@ interface KalshiResponse {
 }
 
 /**
- * Mock predictions data for fallback
- */
-const MOCK_PREDICTIONS: Prediction[] = [
-	{
-		id: 'pm-1',
-		question: 'Will there be a US-China military incident in 2026?',
-		probability: 0.18,
-		volume: 2400000,
-		category: 'geopolitics',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-2',
-		question: 'Will Bitcoin reach $150K by end of 2026?',
-		probability: 0.35,
-		volume: 8100000,
-		category: 'crypto',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-3',
-		question: 'Will Fed cut rates in Q1 2026?',
-		probability: 0.42,
-		volume: 5200000,
-		category: 'macro',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-4',
-		question: 'Will AI cause major job losses in 2026?',
-		probability: 0.28,
-		volume: 1800000,
-		category: 'tech',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-5',
-		question: 'Will Ukraine conflict end in 2026?',
-		probability: 0.22,
-		volume: 3500000,
-		category: 'geopolitics',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-6',
-		question: 'Will oil prices exceed $100/barrel?',
-		probability: 0.31,
-		volume: 2100000,
-		category: 'commodities',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-7',
-		question: 'Will there be a major cyberattack on US infrastructure?',
-		probability: 0.45,
-		volume: 1500000,
-		category: 'cyber',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-8',
-		question: 'Will Trump impose 25%+ tariffs on China?',
-		probability: 0.78,
-		volume: 4200000,
-		category: 'trade',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-9',
-		question: 'Will S&P 500 hit 7000 in 2026?',
-		probability: 0.33,
-		volume: 3800000,
-		category: 'markets',
-		lastUpdated: new Date()
-	},
-	{
-		id: 'pm-10',
-		question: 'Will recession begin before 2027?',
-		probability: 0.24,
-		volume: 6100000,
-		category: 'macro',
-		lastUpdated: new Date()
-	}
-];
-
-/**
  * Category mapping for Polymarket markets
  */
 function categorizeMarket(question: string): string {
@@ -188,8 +102,8 @@ async function fetchFromPolymarket(): Promise<Prediction[]> {
 	try {
 		await rateLimiters.polymarket.throttle();
 
-		// Fetch active markets with high volume
-		const url = `${API_URLS.polymarket}/markets?limit=20&active=true`;
+		// Fetch open markets sorted by 24-hour volume
+		const url = `${API_URLS.polymarket}/markets?limit=20&closed=false&order=volume24hr&ascending=false`;
 		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
@@ -277,8 +191,8 @@ async function fetchFromKalshi(): Promise<Prediction[]> {
 }
 
 /**
- * Fetch Polymarket predictions with fallbacks
- * Tries Polymarket first, then Kalshi, then mock data
+ * Fetch Polymarket predictions with fallback to Kalshi
+ * Tries Polymarket first, then Kalshi. Throws if both fail.
  */
 export async function fetchPolymarket(): Promise<Prediction[]> {
 	// Try Polymarket first
@@ -302,25 +216,9 @@ export async function fetchPolymarket(): Promise<Prediction[]> {
 			return predictions;
 		}
 	} catch (err) {
-		logger.warn('Polymarket', 'Kalshi API failed, using mock data');
+		logger.error('Polymarket', 'Both Polymarket and Kalshi APIs failed');
 	}
 
-	// Fall back to mock data
-	logger.debug('Polymarket', 'Using mock prediction data');
-	return MOCK_PREDICTIONS.map((p) => ({
-		...p,
-		probability: p.probability + (Math.random() - 0.5) * 0.05, // Add slight variance
-		lastUpdated: new Date()
-	}));
-}
-
-/**
- * Get mock predictions (for testing)
- */
-export function getMockPredictions(): Prediction[] {
-	return MOCK_PREDICTIONS.map((p) => ({
-		...p,
-		probability: p.probability + (Math.random() - 0.5) * 0.05,
-		lastUpdated: new Date()
-	}));
+	// Both APIs failed - return empty array (panel will show error state)
+	throw new Error('Failed to fetch prediction market data from all sources');
 }
