@@ -80,100 +80,116 @@
 
 			<!-- Panels Grid - CSS Columns -->
 			<div class="panels-grid">
-			<!-- Narrative Tracker - First for timeliness -->
-			<div class="panel-item">
-				<NarrativePanel />
-			</div>
+				<!-- ═══════════════════════════════════════════════════════════
+				     TIER 1: Breaking / Trending (highest priority)
+				     ═══════════════════════════════════════════════════════════ -->
 
-			<!-- News / Politics - High timeliness -->
-			<div class="panel-item">
-				<USPoliticsPanel limit={20} />
-			</div>
-
-			<div class="panel-item">
-				<NewsPanel limit={20} />
-			</div>
-
-			<div class="panel-item">
-				<AlertsPanel />
-			</div>
-
-			<div class="panel-item">
-				<AINewsPanel />
-			</div>
-
-			<!-- Pattern Analysis -->
-			<div class="panel-item">
-				<CorrelationPanel />
-			</div>
-
-			<div class="panel-item">
-				<MainCharacterPanel />
-			</div>
-
-			<!-- Legal / Legislative -->
-			<div class="panel-item">
-				<CourtCasesPanel limit={15} />
-			</div>
-
-			<div class="panel-item">
-				<CongressPanel limit={15} />
-			</div>
-
-			<!-- Markets - Real-time data -->
-			<div class="panel-item">
-				<MarketsPanel />
-			</div>
-
-			<div class="panel-item">
-				<CommoditiesPanel />
-			</div>
-
-			<div class="panel-item">
-				<CryptoPanel />
-			</div>
-
-			<div class="panel-item">
-				<SectorHeatmapPanel />
-			</div>
-
-			<div class="panel-item">
-				<PolymarketPanel />
-			</div>
-
-			<!-- Intel -->
-			<div class="panel-item">
-				<IntelPanel />
-			</div>
-
-			<!-- Gov Contracts & Layoffs -->
-			<div class="panel-item">
-				<GovContractsPanel />
-			</div>
-
-			<div class="panel-item">
-				<LayoffsPanel />
-			</div>
-
-			<!-- Custom Monitors -->
-			<div class="panel-item">
-				<CustomMonitorsPanel />
-			</div>
-
-			<!-- Situation Watches -->
-			{#each SITUATIONS as situation (situation.id)}
+				<!-- Narrative Tracker - What's trending right now -->
 				<div class="panel-item">
-					<SituationWatchPanel
-						id={situation.id}
-						title={situation.title}
-						description={situation.description}
-						keywords={situation.keywords}
-						icon={situation.icon}
-					/>
+					<NarrativePanel />
 				</div>
-			{/each}
 
-				<!-- World Leaders - Less time-sensitive, moved to end -->
+				<!-- Alerts - Breaking alerts -->
+				<div class="panel-item">
+					<AlertsPanel />
+				</div>
+
+				<!-- News Feed - Breaking news -->
+				<div class="panel-item">
+					<NewsPanel limit={25} />
+				</div>
+
+				<!-- US Politics - Timely political news -->
+				<div class="panel-item">
+					<USPoliticsPanel limit={20} />
+				</div>
+
+				<!-- AI News - Tech/AI breaking news -->
+				<div class="panel-item">
+					<AINewsPanel />
+				</div>
+
+				<!-- Intel - Intelligence updates -->
+				<div class="panel-item">
+					<IntelPanel />
+				</div>
+
+				<!-- ═══════════════════════════════════════════════════════════
+				     TIER 2: Analysis / Patterns
+				     ═══════════════════════════════════════════════════════════ -->
+
+				<!-- Main Character - Who's trending -->
+				<div class="panel-item">
+					<MainCharacterPanel />
+				</div>
+
+				<!-- Correlation - Pattern analysis -->
+				<div class="panel-item">
+					<CorrelationPanel />
+				</div>
+
+				<!-- Custom Monitors - User-defined alerts -->
+				<div class="panel-item">
+					<CustomMonitorsPanel />
+				</div>
+
+				<!-- Situation Watches - User-defined monitoring -->
+				{#each SITUATIONS as situation (situation.id)}
+					<div class="panel-item">
+						<SituationWatchPanel
+							id={situation.id}
+							title={situation.title}
+							description={situation.description}
+							keywords={situation.keywords}
+							icon={situation.icon}
+						/>
+					</div>
+				{/each}
+
+				<!-- ═══════════════════════════════════════════════════════════
+				     TIER 3: Markets (real-time but more reference)
+				     ═══════════════════════════════════════════════════════════ -->
+
+				<div class="panel-item">
+					<MarketsPanel />
+				</div>
+
+				<div class="panel-item">
+					<CryptoPanel />
+				</div>
+
+				<div class="panel-item">
+					<CommoditiesPanel />
+				</div>
+
+				<div class="panel-item">
+					<SectorHeatmapPanel />
+				</div>
+
+				<!-- ═══════════════════════════════════════════════════════════
+				     TIER 4: Static / Reference Data (lowest priority)
+				     ═══════════════════════════════════════════════════════════ -->
+
+				<div class="panel-item">
+					<CourtCasesPanel limit={15} />
+				</div>
+
+				<div class="panel-item">
+					<CongressPanel limit={15} />
+				</div>
+
+				<div class="panel-item">
+					<PolymarketPanel />
+				</div>
+
+				<div class="panel-item">
+					<GovContractsPanel />
+				</div>
+
+				<div class="panel-item">
+					<LayoffsPanel />
+				</div>
+
 				<div class="panel-item">
 					<WorldLeadersPanel />
 				</div>
