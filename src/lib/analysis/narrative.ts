@@ -65,6 +65,142 @@ function extractPhrases(text: string): string[] {
 }
 
 /**
+ * Generic phrases to filter out - common news/business terms that aren't narratives
+ */
+const BLOCKED_PHRASES = new Set([
+	// Generic business terms
+	'joint venture',
+	'press release',
+	'board directors',
+	'chief executive',
+	'executive officer',
+	'annual report',
+	'fiscal year',
+	'quarter results',
+	'earnings report',
+	'stock market',
+	'market share',
+	'private equity',
+	'venture capital',
+	'initial public',
+	'public offering',
+	// Generic government/politics
+	'united states',
+	'white house',
+	'supreme court',
+	'federal reserve',
+	'central bank',
+	'bank japan',
+	'bank england',
+	'european union',
+	'european central',
+	'prime minister',
+	'foreign minister',
+	'defense minister',
+	'finance minister',
+	// Generic news phrases
+	'breaking news',
+	'latest news',
+	'news update',
+	'developing story',
+	'reports say',
+	'sources say',
+	'according sources',
+	'official says',
+	'officials say',
+	'government says',
+	'statement says',
+	'spokesman says',
+	'spokesperson says',
+	// Time references
+	'last week',
+	'last month',
+	'last year',
+	'next week',
+	'next month',
+	'next year',
+	'this week',
+	'this month',
+	'this year',
+	// Generic locations without context
+	'north america',
+	'south america',
+	'middle east',
+	'asia pacific',
+	'east asia',
+	'south asia',
+	'west africa',
+	'east africa',
+	// Other generic
+	'million dollars',
+	'billion dollars',
+	'percent increase',
+	'percent decrease',
+	'year over',
+	'over year',
+	'quarter over',
+	'month over',
+	'record high',
+	'record low',
+	'all time',
+	'first time',
+	'long term',
+	'short term',
+	'real estate',
+	'social media',
+	'artificial intelligence', // too broad
+	'climate change', // too broad unless specific
+	'public health',
+	'national security',
+	'economic growth',
+	'interest rates',
+	'inflation rate',
+	'unemployment rate',
+	'gross domestic',
+	'domestic product',
+	'board peace', // specific garbage we've seen
+	// Partial phrases / fragments
+	'judge rejects',
+	'judge rules',
+	'court rules',
+	'court rejects',
+	'report says',
+	'study finds',
+	'study shows',
+	'research shows',
+	'poll shows',
+	'survey shows',
+	'data shows',
+	'experts say',
+	'analysts say',
+	// Redundant event names (keep full names only)
+	'world economic',
+	'economic forum',
+	'world forum',
+	'davos forum',
+	'general assembly',
+	'security council',
+	// More generic terms
+	'global economy',
+	'world economy',
+	'stock exchange',
+	'wall street',
+	'tech companies',
+	'tech industry',
+	'oil prices',
+	'gas prices',
+	'energy prices',
+	'food prices'
+]);
+
+/**
+ * Check if a phrase should be blocked
+ */
+function isBlockedPhrase(phrase: string): boolean {
+	return BLOCKED_PHRASES.has(phrase.toLowerCase());
+}
+
+/**
  * Check if word is significant (not a stop word or technical artifact)
  */
 function isSignificantWord(word: string): boolean {
@@ -177,6 +313,8 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 		const tier = getSourceTier(item.source);
 
 		for (const phrase of phrases) {
+			// Skip blocked generic phrases
+			if (isBlockedPhrase(phrase)) continue;
 			const data = phraseData.get(phrase) || {
 				mentions: 0,
 				sources: new Set(),
@@ -203,6 +341,11 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 	for (const [phrase, data] of phraseData) {
 		if (data.mentions < minMentions) continue;
 		if (data.sources.size < 2) continue; // Require multiple sources
+
+		// Skip if phrase is too short or too generic
+		const words = phrase.split(' ');
+		if (words.length < 2) continue;
+		if (words.every(w => w.length <= 4)) continue; // All short words = likely garbage
 
 		// Determine stage based on source tiers
 		let stage: Narrative['stage'];
@@ -256,7 +399,20 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 		return b.mentions - a.mentions;
 	});
 
-	return narratives.slice(0, 20);
+	// Deduplicate overlapping phrases - if a shorter phrase is substring of longer, keep the longer
+	const deduped = narratives.filter((narrative, i) => {
+		const topic = narrative.topic.toLowerCase();
+		// Check if any other narrative with more mentions contains this as substring
+		return !narratives.some(
+			(other, j) =>
+				i !== j &&
+				other.mentions >= narrative.mentions &&
+				other.topic.toLowerCase().includes(topic) &&
+				other.topic.length > narrative.topic.length
+		);
+	});
+
+	return deduped.slice(0, 20);
 }
 
 /**
