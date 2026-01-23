@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Panel } from '$lib/components/common';
 	import { fetchGovContracts } from '$lib/api/government';
+	import { formatRelativeTime } from '$lib/utils';
 	import type { GovContract } from '$lib/types';
 
 	let contracts: GovContract[] = $state([]);
@@ -15,6 +16,14 @@
 		if (v >= 1e6) return '$' + (v / 1e6).toFixed(0) + 'M';
 		if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
 		return '$' + v.toFixed(0);
+	}
+
+	function formatDate(date: Date): string {
+		return date.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
 	}
 
 	function getTypeClass(type: string): string {
@@ -67,7 +76,10 @@
 						</div>
 						<div class="contract-vendor">{contract.vendor}</div>
 						<div class="contract-desc">{contract.description}</div>
-						<div class="contract-value">{formatValue(contract.value)}</div>
+						<div class="contract-footer">
+							<span class="contract-value">{formatValue(contract.value)}</span>
+							<span class="contract-date">{formatDate(contract.awardDate)}</span>
+						</div>
 					</a>
 				{:else}
 					<div class="contract-item">
@@ -77,7 +89,10 @@
 						</div>
 						<div class="contract-vendor">{contract.vendor}</div>
 						<div class="contract-desc">{contract.description}</div>
-						<div class="contract-value">{formatValue(contract.value)}</div>
+						<div class="contract-footer">
+							<span class="contract-value">{formatValue(contract.value)}</span>
+							<span class="contract-date">{formatDate(contract.awardDate)}</span>
+						</div>
 					</div>
 				{/if}
 			{/each}
@@ -154,11 +169,22 @@
 		line-height: 1.3;
 	}
 
+	.contract-footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 0.25rem;
+	}
+
 	.contract-value {
 		font-size: 0.7rem;
 		font-weight: 700;
 		color: var(--green);
-		margin-top: 0.25rem;
+	}
+
+	.contract-date {
+		font-size: 0.55rem;
+		color: var(--text-muted);
 	}
 
 	.empty-state {
