@@ -12,3 +12,5 @@ export {
 	capitalize,
 	generateId
 } from './format';
+
+export { viewport } from './viewport.svelte';

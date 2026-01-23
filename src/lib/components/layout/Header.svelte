@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { refreshStore } from '$lib/stores';
+	import { viewport } from '$lib/utils';
 	import { RefreshControls } from '$lib/components/common';
 
 	function formatTime(date: Date): string {
@@ -15,25 +16,28 @@
 	}
 </script>
 
-<header class="header">
+<header class="header" class:mobile={viewport.isMobile}>
 	<div class="header-left">
-		<h1 class="logo">SITUATION ROOM</h1>
+		<h1 class="logo">{viewport.isMobile ? 'SITREP' : 'SITUATION ROOM'}</h1>
 	</div>
 
 	<div class="header-center">
 		{#if refreshStore.lastRefresh}
 			<span class="update-time">
-				Last updated: {formatTime(refreshStore.lastRefresh)}
+				{viewport.isMobile ? formatTime(refreshStore.lastRefresh) : `Last updated: ${formatTime(refreshStore.lastRefresh)}`}
 			</span>
 		{/if}
 	</div>
 
 	<div class="header-right">
-		<RefreshControls />
+		{#if !viewport.isMobile}
+			<RefreshControls />
+		{/if}
 		<button
 			onclick={handleRefresh}
 			disabled={refreshStore.isRefreshing}
 			class="refresh-btn"
+			class:mobile={viewport.isMobile}
 			title="Refresh now"
 		>
 			{refreshStore.isRefreshing ? '↻' : '↻'}
@@ -114,5 +118,25 @@
 		to {
 			transform: rotate(360deg);
 		}
+	}
+
+	/* Mobile styles */
+	.header.mobile {
+		padding: 0.5rem 0.75rem;
+		height: 44px;
+	}
+
+	.header.mobile .logo {
+		font-size: 0.85rem;
+	}
+
+	.header.mobile .update-time {
+		font-size: 0.65rem;
+	}
+
+	.refresh-btn.mobile {
+		width: 36px;
+		height: 36px;
+		font-size: 1rem;
 	}
 </style>

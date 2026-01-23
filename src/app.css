@@ -88,3 +88,39 @@ body {
 .text-down { color: var(--red); }
 .text-warning { color: var(--yellow); }
 .text-info { color: var(--blue); }
+
+/* Mobile utilities */
+@media (max-width: 767px) {
+	body {
+		font-size: 0.85rem;
+		-webkit-text-size-adjust: 100%;
+	}
+
+	.app {
+		padding-bottom: env(safe-area-inset-bottom, 0);
+	}
+}
+
+/* Touch utilities */
+.touch-target {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.scroll-touch {
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+}
+
+/* Visibility utilities */
+@media (max-width: 767px) {
+	.desktop-only {
+		display: none !important;
+	}
+}
+
+@media (min-width: 768px) {
+	.mobile-only {
+		display: none !important;
+	}
+}

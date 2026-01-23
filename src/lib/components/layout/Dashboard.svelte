@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { refreshStore, settingsStore } from '$lib/stores';
-	import { Header } from '$lib/components/layout';
+	import { refreshStore, settingsStore, mobileNavStore } from '$lib/stores';
+	import { viewport } from '$lib/utils';
+	import { Header, MobileNav } from '$lib/components/layout';
 	import {
 		MapPanel,
 		NewsPanel,
@@ -26,6 +27,13 @@
 		SituationWatchPanel,
 		CustomMonitorsPanel
 	} from '$lib/components/panels';
+	import {
+		MobileNewsView,
+		MobileMapView,
+		MobileTrendsView,
+		MobileIntelView,
+		MobileMoreView
+	} from '$lib/components/mobile';
 	import { SITUATIONS } from '$lib/config/situations';
 
 	onMount(() => {
@@ -43,17 +51,35 @@
 	});
 </script>
 
-<div class="dashboard">
+<div class="dashboard" class:mobile={viewport.isMobile}>
 	<Header />
 
-	<main class="dashboard-main">
-		<!-- Map Panel - Full Width -->
-		<div class="map-section">
-			<MapPanel />
-		</div>
+	{#if viewport.isMobile}
+		<!-- Mobile Layout -->
+		<main class="mobile-main">
+			{#if mobileNavStore.activeTab === 'news'}
+				<MobileNewsView />
+			{:else if mobileNavStore.activeTab === 'map'}
+				<MobileMapView />
+			{:else if mobileNavStore.activeTab === 'trends'}
+				<MobileTrendsView />
+			{:else if mobileNavStore.activeTab === 'intel'}
+				<MobileIntelView />
+			{:else if mobileNavStore.activeTab === 'more'}
+				<MobileMoreView />
+			{/if}
+		</main>
+		<MobileNav />
+	{:else}
+		<!-- Desktop Layout -->
+		<main class="dashboard-main">
+			<!-- Map Panel - Full Width -->
+			<div class="map-section">
+				<MapPanel />
+			</div>
 
-		<!-- Panels Grid - CSS Columns -->
-		<div class="panels-grid">
+			<!-- Panels Grid - CSS Columns -->
+			<div class="panels-grid">
 			<!-- Narrative Tracker - First for timeliness -->
 			<div class="panel-item">
 				<NarrativePanel />
@@ -147,12 +173,13 @@
 				</div>
 			{/each}
 
-			<!-- World Leaders - Less time-sensitive, moved to end -->
-			<div class="panel-item">
-				<WorldLeadersPanel />
+				<!-- World Leaders - Less time-sensitive, moved to end -->
+				<div class="panel-item">
+					<WorldLeadersPanel />
+				</div>
 			</div>
-		</div>
-	</main>
+		</main>
+	{/if}
 
 	<!-- Error Toast -->
 	{#if refreshStore.errors.length > 0}
@@ -238,5 +265,19 @@
 		padding: 0.75rem 1rem;
 		max-width: 300px;
 		z-index: 100;
+	}
+
+	/* Mobile styles */
+	.dashboard.mobile {
+		padding-bottom: calc(60px + env(safe-area-inset-bottom, 0));
+	}
+
+	.mobile-main {
+		height: calc(100vh - 44px);
+		overflow: hidden;
+	}
+
+	.dashboard.mobile .error-toast {
+		bottom: calc(70px + env(safe-area-inset-bottom, 0));
 	}
 </style>
