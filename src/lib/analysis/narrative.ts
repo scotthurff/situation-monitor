@@ -229,8 +229,9 @@ export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[]
 			trajectory = 'stable';
 		}
 
-		// Sort items by date (most recent first) and limit to 10
-		const sortedItems = [...data.items]
+		// Deduplicate items by ID, sort by date (most recent first), and limit to 10
+		const uniqueItems = Array.from(new Map(data.items.map((item) => [item.id, item])).values());
+		const sortedItems = uniqueItems
 			.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())
 			.slice(0, 10);
 
