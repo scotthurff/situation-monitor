@@ -461,6 +461,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+		/* Fixed height with scroll to prevent panel reflow */
+		max-height: 250px;
+		overflow-y: auto;
 	}
 
 	.news-link {
