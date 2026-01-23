@@ -1,11 +1,18 @@
 /**
  * Markets store - Manages market data with Svelte 5 runes
+ * Implements cache-first loading for instant perceived performance
  */
 
 import { fetchIndices, fetchStocks, fetchCommodities, fetchForex } from '$lib/api';
 import { fetchCryptoPrices } from '$lib/api/crypto';
 import { fetchPolymarket as fetchPolymarketApi } from '$lib/api/polymarket';
+import { marketCache, cryptoCache } from '$lib/services/cache';
 import type { MarketData, CryptoData, CommodityData, Prediction } from '$lib/types';
+
+// Cache keys
+const INDICES_CACHE_KEY = 'markets:indices';
+const CRYPTO_CACHE_KEY = 'markets:crypto';
+const COMMODITIES_CACHE_KEY = 'markets:commodities';
 
 // Reactive state
 let indices = $state<MarketData[]>([]);
@@ -23,11 +30,59 @@ const totalMarketItems = $derived(indices.length + stocks.length + commodities.l
 const hasData = $derived(totalMarketItems > 0 || crypto.length > 0);
 
 /**
+ * Load indices from cache (instant, non-blocking)
+ */
+function loadIndicesFromCache(): boolean {
+	const cached = marketCache.getStale<MarketData[]>(INDICES_CACHE_KEY);
+	if (cached && cached.length > 0) {
+		indices = cached;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Load crypto from cache
+ */
+function loadCryptoFromCache(): boolean {
+	const cached = cryptoCache.getStale<CryptoData[]>(CRYPTO_CACHE_KEY);
+	if (cached && cached.length > 0) {
+		crypto = cached;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Load commodities from cache
+ */
+function loadCommoditiesFromCache(): boolean {
+	const cached = marketCache.getStale<CommodityData[]>(COMMODITIES_CACHE_KEY);
+	if (cached && cached.length > 0) {
+		commodities = cached;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Load all cached market data (for instant display)
+ */
+function loadFromCache(): boolean {
+	const hadIndices = loadIndicesFromCache();
+	const hadCrypto = loadCryptoFromCache();
+	const hadCommodities = loadCommoditiesFromCache();
+	return hadIndices || hadCrypto || hadCommodities;
+}
+
+/**
  * Fetch all indices
  */
 async function loadIndices(): Promise<void> {
 	try {
-		indices = await fetchIndices();
+		const fresh = await fetchIndices();
+		marketCache.set(INDICES_CACHE_KEY, fresh);
+		indices = fresh;
 	} catch (err) {
 		console.error('[MarketsStore] Failed to fetch indices:', err);
 	}
@@ -49,7 +104,9 @@ async function loadStocks(): Promise<void> {
  */
 async function loadCommodities(): Promise<void> {
 	try {
-		commodities = await fetchCommodities();
+		const fresh = await fetchCommodities();
+		marketCache.set(COMMODITIES_CACHE_KEY, fresh);
+		commodities = fresh;
 	} catch (err) {
 		console.error('[MarketsStore] Failed to fetch commodities:', err);
 	}
@@ -71,7 +128,9 @@ async function loadForex(): Promise<void> {
  */
 async function loadCrypto(): Promise<void> {
 	try {
-		crypto = await fetchCryptoPrices();
+		const fresh = await fetchCryptoPrices();
+		cryptoCache.set(CRYPTO_CACHE_KEY, fresh);
+		crypto = fresh;
 	} catch (err) {
 		console.error('[MarketsStore] Failed to fetch crypto:', err);
 	}
@@ -115,10 +174,13 @@ async function fetchAllMarkets(): Promise<void> {
 }
 
 /**
- * Fetch critical market data only (indices)
+ * Fetch critical market data only (indices) - cache-first
  */
 async function fetchCritical(): Promise<void> {
-	isLoading = true;
+	// Show cached data immediately
+	const hadCache = loadIndicesFromCache();
+
+	isLoading = !hadCache;
 	try {
 		await loadIndices();
 		lastUpdated = new Date();
@@ -128,10 +190,26 @@ async function fetchCritical(): Promise<void> {
 }
 
 /**
- * Fetch secondary market data (crypto, commodities)
+ * Fetch secondary market data (crypto, commodities) - cache-first
  */
 async function fetchSecondary(): Promise<void> {
+	// Show cached data immediately
+	loadCryptoFromCache();
+	loadCommoditiesFromCache();
+
+	// Fetch fresh in parallel
 	await Promise.all([loadCrypto(), loadCommodities()]);
+}
+
+/**
+ * Hydrate indices with server-side data (for SSR)
+ */
+function hydrateIndices(items: MarketData[]): void {
+	if (items.length > 0 && indices.length === 0) {
+		indices = items;
+		marketCache.set(INDICES_CACHE_KEY, items);
+		lastUpdated = new Date();
+	}
 }
 
 /**
@@ -188,5 +266,7 @@ export const marketsStore = {
 	loadCommodities,
 	loadForex,
 	loadCrypto,
-	clear
+	clear,
+	loadFromCache,
+	hydrateIndices
 };

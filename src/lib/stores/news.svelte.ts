@@ -1,9 +1,15 @@
 /**
  * News store - Manages news data with Svelte 5 runes
+ * Implements cache-first loading for instant perceived performance
  */
 
 import { fetchCombinedNews, fetchCategoryNews, fetchIntelNews } from '$lib/api';
+import { newsCache, intelCache } from '$lib/services/cache';
 import type { NewsItem, NewsCategory } from '$lib/types';
+
+// Cache keys
+const NEWS_CACHE_KEY = 'news:combined';
+const INTEL_CACHE_KEY = 'news:intel';
 
 // Reactive state using Svelte 5 runes
 let news = $state<NewsItem[]>([]);
@@ -17,31 +23,80 @@ const alertNews = $derived(news.filter((item) => item.severity));
 const newsCount = $derived(news.length);
 
 /**
- * Fetch all news
+ * Load news from cache (instant, non-blocking)
+ */
+function loadFromCache(): boolean {
+	const cached = newsCache.getStale<NewsItem[]>(NEWS_CACHE_KEY);
+	if (cached && cached.length > 0) {
+		news = cached;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Load intel from cache
+ */
+function loadIntelFromCache(): boolean {
+	const cached = intelCache.getStale<NewsItem[]>(INTEL_CACHE_KEY);
+	if (cached && cached.length > 0) {
+		intelNews = cached;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Fetch all news (cache-first: shows cached data instantly, fetches fresh in background)
  */
 async function fetchNews(limit = 100): Promise<void> {
-	isLoading = true;
+	// Show cached data immediately
+	const hadCache = loadFromCache();
+
+	// Only show loading state if no cached data
+	isLoading = !hadCache;
 	error = null;
 
 	try {
-		news = await fetchCombinedNews(limit);
+		const fresh = await fetchCombinedNews(limit);
+		newsCache.set(NEWS_CACHE_KEY, fresh);
+		news = fresh;
 		lastUpdated = new Date();
 	} catch (err) {
-		error = err instanceof Error ? err.message : 'Failed to fetch news';
-		console.error('[NewsStore]', error);
+		// Only show error if we had no cached data to fall back on
+		if (!hadCache) {
+			error = err instanceof Error ? err.message : 'Failed to fetch news';
+			console.error('[NewsStore]', error);
+		}
 	} finally {
 		isLoading = false;
 	}
 }
 
 /**
- * Fetch intel news specifically
+ * Fetch intel news (cache-first)
  */
 async function fetchIntel(): Promise<void> {
+	// Show cached data immediately
+	loadIntelFromCache();
+
 	try {
-		intelNews = await fetchIntelNews();
+		const fresh = await fetchIntelNews();
+		intelCache.set(INTEL_CACHE_KEY, fresh);
+		intelNews = fresh;
 	} catch (err) {
 		console.error('[NewsStore] Failed to fetch intel:', err);
+	}
+}
+
+/**
+ * Hydrate store with server-side data (for SSR)
+ */
+function hydrate(items: NewsItem[]): void {
+	if (items.length > 0 && news.length === 0) {
+		news = items;
+		newsCache.set(NEWS_CACHE_KEY, items);
+		lastUpdated = new Date();
 	}
 }
 
@@ -108,5 +163,7 @@ export const newsStore = {
 	getByCategory,
 	getByRegion,
 	search,
-	clear
+	clear,
+	hydrate,
+	loadFromCache
 };

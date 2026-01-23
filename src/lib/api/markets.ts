@@ -93,22 +93,31 @@ async function fetchFinnhubQuote(symbol: string): Promise<MarketData | null> {
 }
 
 /**
- * Fetch market data with fallback
+ * Fetch market data with parallel fallback (race pattern)
+ * Fetches from all sources simultaneously, returns first successful result
  */
 async function fetchQuote(symbol: string, name: string): Promise<MarketData | null> {
-	// Try Yahoo first (no API key needed)
-	let quote = await fetchYahooQuote(symbol);
+	// Build array of sources to fetch in parallel
+	const sources: Promise<MarketData | null>[] = [
+		fetchYahooQuote(symbol).catch(() => null)
+	];
 
-	// Fallback to Finnhub for stocks
-	if (!quote && FINNHUB_API_KEY && !symbol.startsWith('^')) {
-		quote = await fetchFinnhubQuote(symbol);
+	// Add Finnhub for non-index symbols (indices start with ^)
+	if (FINNHUB_API_KEY && !symbol.startsWith('^')) {
+		sources.push(fetchFinnhubQuote(symbol).catch(() => null));
 	}
 
-	if (quote) {
-		quote.name = name;
+	// Fetch all sources in parallel, use first non-null result
+	const results = await Promise.all(sources);
+
+	for (const quote of results) {
+		if (quote) {
+			quote.name = name;
+			return quote;
+		}
 	}
 
-	return quote;
+	return null;
 }
 
 /**

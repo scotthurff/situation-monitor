@@ -93,25 +93,24 @@ async function executeTertiaryStage(): Promise<void> {
 }
 
 /**
- * Run full multi-stage refresh
+ * Run full multi-stage refresh (concurrent - no artificial delays)
+ * Rate limiters already handle API pacing, so stages run in parallel
  */
 async function refresh(): Promise<void> {
 	if (isRefreshing) return;
 
 	isRefreshing = true;
 	errors = [];
+	currentStage = 'critical';
 
 	try {
-		// Stage 1: Critical (immediate)
-		await executeCriticalStage();
-
-		// Stage 2: Secondary (delayed)
-		await new Promise((r) => setTimeout(r, REFRESH_STAGE_DELAYS.secondary));
-		await executeSecondaryStage();
-
-		// Stage 3: Tertiary (further delayed)
-		await new Promise((r) => setTimeout(r, REFRESH_STAGE_DELAYS.tertiary - REFRESH_STAGE_DELAYS.secondary));
-		await executeTertiaryStage();
+		// Run all stages concurrently - rate limiters handle pacing
+		// This saves ~4 seconds of artificial waiting
+		await Promise.allSettled([
+			executeCriticalStage(),
+			executeSecondaryStage(),
+			executeTertiaryStage()
+		]);
 
 		lastRefresh = new Date();
 	} catch (err) {
