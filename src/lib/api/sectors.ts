@@ -163,3 +163,10 @@ export function getMockSectorData(): SectorPerformance[] {
 		changePercent: s.changePercent + (Math.random() - 0.5) * 0.2
 	}));
 }
+
+/**
+ * Check if Finnhub API key is configured
+ */
+export function hasApiKey(): boolean {
+	return !!FINNHUB_API_KEY;
+}

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Panel } from '$lib/components/common';
-	import { fetchSectorData } from '$lib/api/sectors';
+	import { fetchSectorData, hasApiKey } from '$lib/api/sectors';
 	import type { SectorPerformance } from '$lib/types';
 
 	let sectors: SectorPerformance[] = $state([]);
 	let loading = $state(true);
 	let error: string | null = $state(null);
+	let isLiveData = $state(false);
 
 	function getColorClass(change: number): string {
 		if (change >= 2) return 'up-3';
@@ -29,6 +30,7 @@
 		error = null;
 		try {
 			sectors = await fetchSectorData();
+			isLiveData = hasApiKey();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load sectors';
 		} finally {
@@ -42,6 +44,12 @@
 </script>
 
 <Panel id="heatmap" title="Sector Heatmap" icon="🗺️" {loading} {error}>
+	{#snippet header()}
+		{#if !loading && sectors.length > 0}
+			<span class="data-source">{isLiveData ? 'Live' : 'Demo'}</span>
+		{/if}
+	{/snippet}
+
 	{#if sectors.length === 0 && !loading && !error}
 		<div class="empty-state">No sector data available</div>
 	{:else}
@@ -60,7 +68,9 @@
 	.heatmap-grid {
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
-		gap: 0.25rem;
+		grid-template-rows: repeat(3, 1fr);
+		gap: 2px;
+		height: 100%;
 	}
 
 	.heatmap-cell {
@@ -68,10 +78,9 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 0.5rem;
-		border-radius: 4px;
+		padding: 0.25rem;
+		border-radius: 3px;
 		text-align: center;
-		min-height: 3rem;
 		transition: transform 0.15s ease;
 	}
 
@@ -80,18 +89,20 @@
 	}
 
 	.sector-name {
-		font-size: 0.6rem;
+		font-size: 0.55rem;
 		font-weight: 600;
 		color: white;
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+		line-height: 1.1;
 	}
 
 	.sector-change {
-		font-size: 0.55rem;
+		font-size: 0.5rem;
 		font-weight: 500;
 		color: white;
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-		margin-top: 0.2rem;
+		margin-top: 0.1rem;
+		line-height: 1;
 	}
 
 	/* Color classes based on percent change */
@@ -127,9 +138,26 @@
 		padding: 1rem;
 	}
 
+	.data-source {
+		font-size: 0.5rem;
+		padding: 0.1rem 0.3rem;
+		border-radius: 3px;
+		background: rgba(255, 255, 255, 0.1);
+		color: var(--text-muted);
+	}
+
 	@media (max-width: 400px) {
 		.heatmap-grid {
 			grid-template-columns: repeat(3, 1fr);
+			grid-template-rows: repeat(4, 1fr);
+		}
+
+		.sector-name {
+			font-size: 0.5rem;
+		}
+
+		.sector-change {
+			font-size: 0.45rem;
 		}
 	}
 </style>
