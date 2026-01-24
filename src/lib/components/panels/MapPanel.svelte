@@ -810,11 +810,23 @@
 <Panel id="map" title="Global Situation" {loading} {error}>
 	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
 		{#if radarEnabled && radarPath && containerWidth > 0}
-			{@const scaleX = containerWidth / WIDTH}
-			{@const scaleY = containerHeight / HEIGHT}
-			{@const translateX = currentTransform.x * scaleX}
-			{@const translateY = currentTransform.y * scaleY}
-			<div class="radar-layer" style="transform: translate({translateX}px, {translateY}px) scale({currentTransform.k}); transform-origin: 0 0;">
+			{@const scaleToFitX = containerWidth / WIDTH}
+			{@const scaleToFitY = containerHeight / HEIGHT}
+			{@const effectiveScale = fillContainer ? Math.max(scaleToFitX, scaleToFitY) : scaleToFitX}
+			{@const renderedWidth = WIDTH * effectiveScale}
+			{@const renderedHeight = HEIGHT * effectiveScale}
+			{@const offsetX = (containerWidth - renderedWidth) / 2}
+			{@const offsetY = (containerHeight - renderedHeight) / 2}
+			{@const translateX = currentTransform.x * effectiveScale}
+			{@const translateY = currentTransform.y * effectiveScale}
+			<div class="radar-layer" style="
+				width: {renderedWidth}px;
+				height: {renderedHeight}px;
+				left: {offsetX}px;
+				top: {offsetY}px;
+				transform: translate({translateX}px, {translateY}px) scale({currentTransform.k});
+				transform-origin: 0 0;
+			">
 				{#each getRadarTiles() as tile (tile.url)}
 					<img
 						src={tile.url}
@@ -878,10 +890,6 @@
 
 	.radar-layer {
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
 		z-index: 2;
 		opacity: 0.6;
 		pointer-events: none;
