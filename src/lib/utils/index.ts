@@ -10,7 +10,9 @@ export {
 	truncate,
 	stripHtml,
 	capitalize,
-	generateId
+	generateId,
+	getTimestampFreshness,
+	getTimestampColor
 } from './format';
 
 export { viewport } from './viewport.svelte';

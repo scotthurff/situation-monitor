@@ -2,7 +2,7 @@
 	import { Panel } from '$lib/components/common';
 	import { newsStore } from '$lib/stores';
 	import { trackNarratives, findEmergingNarratives } from '$lib/analysis/narrative';
-	import { formatRelativeTime } from '$lib/utils';
+	import { formatRelativeTime, getTimestampColor } from '$lib/utils';
 	import type { Narrative } from '$lib/types';
 
 	// Track narratives from current news
@@ -143,8 +143,8 @@
 									{/if}
 								</div>
 								<div class="timeline">
-									<span class="first-seen">First: {formatRelativeTime(narrative.firstSeen)}</span>
-									<span class="last-seen">Latest: {formatRelativeTime(narrative.lastSeen)}</span>
+									<span class="first-seen" style="color: {getTimestampColor(narrative.firstSeen)}">First: {formatRelativeTime(narrative.firstSeen)}</span>
+									<span class="last-seen" style="color: {getTimestampColor(narrative.lastSeen)}">Latest: {formatRelativeTime(narrative.lastSeen)}</span>
 								</div>
 							</div>
 							{#if isExpanded && narrative.items.length > 0}
@@ -160,7 +160,7 @@
 										>
 											<span class="news-source">{item.source}</span>
 											<span class="news-title">{item.title}</span>
-											<span class="news-time">{formatRelativeTime(item.pubDate)}</span>
+											<span class="news-time" style="color: {getTimestampColor(item.pubDate)}">{formatRelativeTime(item.pubDate)}</span>
 										</a>
 									{/each}
 								</div>
@@ -212,7 +212,7 @@
 										>
 											<span class="news-source">{item.source}</span>
 											<span class="news-title">{item.title}</span>
-											<span class="news-time">{formatRelativeTime(item.pubDate)}</span>
+											<span class="news-time" style="color: {getTimestampColor(item.pubDate)}">{formatRelativeTime(item.pubDate)}</span>
 										</a>
 									{/each}
 								</div>
@@ -245,7 +245,7 @@
 							</div>
 							<div class="narrative-meta">
 								<span class="mentions">{narrative.mentions}</span>
-								<span class="last-seen">Last: {formatRelativeTime(narrative.lastSeen)}</span>
+								<span class="last-seen" style="color: {getTimestampColor(narrative.lastSeen)}">Last: {formatRelativeTime(narrative.lastSeen)}</span>
 							</div>
 							{#if isExpanded && narrative.items.length > 0}
 								<div class="expanded-items">
@@ -260,7 +260,7 @@
 										>
 											<span class="news-source">{item.source}</span>
 											<span class="news-title">{item.title}</span>
-											<span class="news-time">{formatRelativeTime(item.pubDate)}</span>
+											<span class="news-time" style="color: {getTimestampColor(item.pubDate)}">{formatRelativeTime(item.pubDate)}</span>
 										</a>
 									{/each}
 								</div>
@@ -509,6 +509,7 @@
 		font-size: 0.5rem;
 		color: var(--text-muted);
 		margin-top: 0.125rem;
-		opacity: 0.7;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 </style>

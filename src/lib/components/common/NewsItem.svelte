@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatRelativeTime } from '$lib/utils';
+	import { formatRelativeTime, getTimestampColor } from '$lib/utils';
 	import type { NewsItem } from '$lib/types';
 
 	interface Props {
@@ -36,7 +36,7 @@
 				{item.title}
 			</h3>
 			<div class="flex items-center gap-2 mt-1">
-				<span class="news-time">{formatRelativeTime(item.pubDate)}</span>
+				<span class="news-time" style="color: {getTimestampColor(item.pubDate)}">{formatRelativeTime(item.pubDate)}</span>
 				{#if item.regions && item.regions.length > 0}
 					<span class="text-xs text-muted/70">
 						{item.regions.slice(0, 2).join(', ')}
@@ -81,8 +81,10 @@
 	}
 
 	.news-time {
-		font-size: 0.7rem;
+		font-size: 0.65rem;
 		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
 	}
 
 	.badge {
