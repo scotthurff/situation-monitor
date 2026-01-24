@@ -27,6 +27,8 @@
 	let dynamicMarkersGroup: ReturnType<typeof import('d3').select> | null = null;
 
 	let mapContainer: HTMLDivElement;
+	let containerWidth = $state(0);
+	let containerHeight = $state(0);
 	/* eslint-disable @typescript-eslint/no-explicit-any */
 	let d3Module: typeof import('d3') | null = null;
 	let svg: any = null;
@@ -801,9 +803,13 @@
 </script>
 
 <Panel id="map" title="Global Situation" {loading} {error}>
-	<div class="map-container" bind:this={mapContainer}>
-		{#if radarEnabled && radarPath}
-			<div class="radar-layer" style="transform: translate({currentTransform.x}px, {currentTransform.y}px) scale({currentTransform.k}); transform-origin: 0 0;">
+	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
+		{#if radarEnabled && radarPath && containerWidth > 0}
+			{@const scaleX = containerWidth / WIDTH}
+			{@const scaleY = containerHeight / HEIGHT}
+			{@const translateX = currentTransform.x * scaleX}
+			{@const translateY = currentTransform.y * scaleY}
+			<div class="radar-layer" style="transform: translate({translateX}px, {translateY}px) scale({currentTransform.k}); transform-origin: 0 0;">
 				{#each getRadarTiles() as tile (tile.url)}
 					<img
 						src={tile.url}
