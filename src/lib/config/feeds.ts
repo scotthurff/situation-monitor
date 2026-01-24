@@ -65,11 +65,11 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		// Legal News (using Google News RSS to avoid IP blocks)
 		{ name: 'Law360', url: 'https://news.google.com/rss/search?q=site:law360.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'Reuters Legal', url: 'https://news.google.com/rss/search?q=site:reuters.com+legal&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
-		{ name: 'Lawfare', url: 'https://www.lawfaremedia.org/feed', priority: 1, bias: 'center' },
+		{ name: 'Lawfare', url: 'https://news.google.com/rss/search?q=site:lawfaremedia.org&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'Just Security', url: 'https://news.google.com/rss/search?q=site:justsecurity.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-left' },
 
 		// DOJ and Courts
-		{ name: 'DOJ Press', url: 'https://www.justice.gov/feeds/opa/justice-news.xml', priority: 1, bias: 'center' },
+		{ name: 'DOJ Press', url: 'https://news.google.com/rss/search?q=site:justice.gov&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'Courthouse News', url: 'https://www.courthousenews.com/feed/', priority: 2, bias: 'center' },
 
 		// Legal Commentary
@@ -120,16 +120,16 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'SEC', url: 'https://www.sec.gov/news/pressreleases.rss', priority: 2 },
 		{ name: 'DoD News', url: 'https://www.defense.gov/DesktopModules/ArticleCS/RSS.ashx?max=10&ContentType=1&Site=945', priority: 2 },
 		{ name: 'State Dept', url: 'https://www.state.gov/rss-feed/press-releases/feed/', priority: 2 },
-		{ name: 'Treasury Dept', url: 'https://home.treasury.gov/system/files/136/rss.xml', priority: 1 },
+		{ name: 'Treasury Dept', url: 'https://news.google.com/rss/search?q=site:treasury.gov&hl=en-US&gl=US&ceid=US:en', priority: 1 },
 		{ name: 'GAO Reports', url: 'https://www.gao.gov/rss/reports.xml', priority: 2 },
-		{ name: 'CBO', url: 'https://www.cbo.gov/taxonomy/term/148/feed', priority: 2 }
+		{ name: 'CBO', url: 'https://news.google.com/rss/search?q=site:cbo.gov&hl=en-US&gl=US&ceid=US:en', priority: 2 }
 	],
 
 	ai: [
 		{ name: 'OpenAI Blog', url: 'https://openai.com/news/rss.xml', priority: 1 },
 		{ name: 'ArXiv AI', url: 'https://rss.arxiv.org/rss/cs.AI', priority: 1 },
 		{ name: 'DeepMind Blog', url: 'https://deepmind.google/blog/rss.xml', priority: 2 },
-		{ name: 'MIT AI', url: 'https://news.mit.edu/topic/artificial-intelligence2-rss.xml', priority: 2 },
+		{ name: 'MIT AI', url: 'https://news.google.com/rss/search?q=site:news.mit.edu+artificial+intelligence&hl=en-US&gl=US&ceid=US:en', priority: 2 },
 		{ name: 'AI News', url: 'https://news.google.com/rss/search?q=artificial+intelligence+news&hl=en-US&gl=US&ceid=US:en', priority: 3 }
 	],
 
@@ -328,7 +328,7 @@ export const INTEL_SOURCES: IntelSource[] = [
 	// Government Sources
 	{
 		name: 'Congressional Research Service',
-		url: 'https://crsreports.congress.gov/rss/reports.xml',
+		url: 'https://news.google.com/rss/search?q=site:crsreports.congress.gov&hl=en-US&gl=US&ceid=US:en',
 		type: 'govt',
 		topics: ['legislation', 'policy', 'research']
 	},
