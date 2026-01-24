@@ -7,6 +7,36 @@ import { INDICES, STOCKS, COMMODITIES, FOREX, API_URLS, FINNHUB_API_KEY, logger 
 import type { MarketData, CommodityData } from '$lib/types';
 
 /**
+ * Generate synthetic sparkline data based on current price and change
+ * Creates a plausible 7-day trend line ending at current price
+ */
+function generateSparkline(price: number, changePercent: number): number[] {
+	const points = 24; // 24 data points for smooth line
+	const data: number[] = [];
+
+	// Calculate implied starting price based on change
+	const volatilityFactor = Math.abs(changePercent) / 100;
+	const baseVariation = price * 0.005; // 0.5% base variation
+
+	// Start from a price that would lead to current change
+	const startPrice = price / (1 + changePercent / 100);
+
+	for (let i = 0; i < points; i++) {
+		const progress = i / (points - 1);
+		// Interpolate from start to current with some noise
+		const trend = startPrice + (price - startPrice) * progress;
+		// Add controlled randomness
+		const noise = (Math.random() - 0.5) * baseVariation * (1 + volatilityFactor);
+		data.push(trend + noise);
+	}
+
+	// Ensure last point is exactly the current price
+	data[data.length - 1] = price;
+
+	return data;
+}
+
+/**
  * Yahoo Finance API (no key required, but rate limited)
  * Uses a CORS proxy
  */
@@ -131,7 +161,11 @@ export async function fetchIndices(): Promise<MarketData[]> {
 	return results
 		.filter((r): r is PromiseFulfilledResult<MarketData | null> => r.status === 'fulfilled')
 		.map((r) => r.value)
-		.filter((v): v is MarketData => v !== null);
+		.filter((v): v is MarketData => v !== null)
+		.map((item) => ({
+			...item,
+			sparkline: generateSparkline(item.price, item.changePercent)
+		}));
 }
 
 /**
@@ -164,8 +198,9 @@ export async function fetchCommodities(): Promise<CommodityData[]> {
 				change: quote.change,
 				changePercent: quote.changePercent,
 				unit: getUnit(commodity.symbol),
-				lastUpdated: quote.lastUpdated
-			};
+				lastUpdated: quote.lastUpdated,
+				sparkline: generateSparkline(quote.price, quote.changePercent)
+			} as CommodityData;
 		})
 	);
 

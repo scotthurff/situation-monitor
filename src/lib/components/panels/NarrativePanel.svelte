@@ -72,6 +72,17 @@
 		}
 	}
 
+	function getHeadlinePreview(narrative: Narrative): string | null {
+		// Get the most recent headline as a preview
+		if (narrative.items.length === 0) return null;
+		const headline = narrative.items[0].title;
+		// Truncate to a reasonable length
+		if (headline.length > 80) {
+			return headline.slice(0, 77) + '...';
+		}
+		return headline;
+	}
+
 	function formatSourceTiers(sources: string[]): { mainstream: number; alt: number } {
 		const mainstreamSources = [
 			'BBC World',
@@ -116,6 +127,7 @@
 					{#each risingNarratives.slice(0, 8) as narrative (narrative.id)}
 						{@const tiers = formatSourceTiers(narrative.sources)}
 						{@const isExpanded = expandedId === narrative.id}
+						{@const preview = getHeadlinePreview(narrative)}
 						<button
 							class="narrative-item {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
@@ -127,6 +139,9 @@
 									{getTrajectoryIcon(narrative.trajectory)}
 								</span>
 							</div>
+							{#if preview && !isExpanded}
+								<div class="headline-preview">{preview}</div>
+							{/if}
 							<div class="narrative-meta">
 								<span class="stage-badge {getStageClass(narrative.stage)}">
 									{narrative.stage}
@@ -181,6 +196,7 @@
 					{#each stableNarratives.slice(0, 5) as narrative (narrative.id)}
 						{@const tiers = formatSourceTiers(narrative.sources)}
 						{@const isExpanded = expandedId === narrative.id}
+						{@const preview = getHeadlinePreview(narrative)}
 						<button
 							class="narrative-item {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
@@ -192,6 +208,9 @@
 									{getTrajectoryIcon(narrative.trajectory)}
 								</span>
 							</div>
+							{#if preview && !isExpanded}
+								<div class="headline-preview">{preview}</div>
+							{/if}
 							<div class="narrative-meta">
 								<span class="stage-badge {getStageClass(narrative.stage)}">
 									{narrative.stage}
@@ -232,6 +251,7 @@
 					</div>
 					{#each fallingNarratives.slice(0, 3) as narrative (narrative.id)}
 						{@const isExpanded = expandedId === narrative.id}
+						{@const preview = getHeadlinePreview(narrative)}
 						<button
 							class="narrative-item declining {getStageClass(narrative.stage)}"
 							class:expanded={isExpanded}
@@ -243,6 +263,9 @@
 									{getTrajectoryIcon(narrative.trajectory)}
 								</span>
 							</div>
+							{#if preview && !isExpanded}
+								<div class="headline-preview">{preview}</div>
+							{/if}
 							<div class="narrative-meta">
 								<span class="mentions">{narrative.mentions}</span>
 								<span class="last-seen" style="color: {getTimestampColor(narrative.lastSeen)}">Last: {formatRelativeTime(narrative.lastSeen)}</span>
@@ -361,6 +384,21 @@
 		text-transform: capitalize;
 	}
 
+	.headline-preview {
+		font-size: 0.6rem;
+		color: var(--text-dim);
+		line-height: 1.3;
+		margin-top: 0.25rem;
+		/* Subtle italics to distinguish from topic */
+		font-style: italic;
+		/* Truncate long previews */
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
 	.trajectory {
 		font-size: 0.8rem;
 		font-weight: bold;
@@ -446,6 +484,7 @@
 	.first-seen,
 	.last-seen {
 		opacity: 0.7;
+		font-size: 0.5rem;
 	}
 
 	.mentions,
@@ -506,7 +545,7 @@
 	}
 
 	.news-time {
-		font-size: 0.5rem;
+		font-size: 0.45rem;
 		color: var(--text-muted);
 		margin-top: 0.125rem;
 		text-transform: uppercase;

@@ -44,6 +44,7 @@ export interface MarketData {
 	low?: number;
 	volume?: number;
 	lastUpdated: Date;
+	sparkline?: number[];
 }
 
 // Crypto data
@@ -68,6 +69,7 @@ export interface CommodityData {
 	changePercent: number;
 	unit: string;
 	lastUpdated: Date;
+	sparkline?: number[];
 }
 
 // Sector performance for heatmap

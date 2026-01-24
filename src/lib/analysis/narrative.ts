@@ -55,20 +55,58 @@ const COMMON_WORDS = new Set([
 	'says', 'said', 'tells', 'told', 'asks', 'asked', 'makes', 'made',
 	'gets', 'take', 'takes', 'took', 'goes', 'went', 'comes', 'came',
 	'sees', 'seen', 'shows', 'shown', 'calls', 'called', 'warns', 'warns',
+	'know', 'knows', 'knew', 'think', 'thinks', 'thought', 'look', 'looks',
+	'looked', 'find', 'finds', 'found', 'give', 'gives', 'gave', 'need',
+	'needs', 'needed', 'want', 'wants', 'wanted', 'keep', 'keeps', 'kept',
 	// Adverbs and adjectives
 	'just', 'only', 'even', 'also', 'still', 'already', 'here', 'there',
 	'first', 'last', 'next', 'more', 'most', 'some', 'many', 'other',
+	'every', 'each', 'both', 'another', 'such', 'same', 'different',
 	// Pronouns and determiners
 	'this', 'that', 'these', 'those', 'what', 'which', 'where', 'when',
 	'will', 'would', 'could', 'should', 'must', 'might', 'being', 'having',
 	// Generic political/news terms
 	'house', 'senate', 'court', 'bill', 'vote', 'deal', 'plan', 'report',
-	'news', 'update', 'breaking', 'live', 'watch', 'read', 'latest'
+	'news', 'update', 'breaking', 'live', 'watch', 'read', 'latest',
+	// Common headline words that aren't meaningful topics
+	'week', 'year', 'years', 'month', 'months', 'days', 'today', 'tonight',
+	'inside', 'outside', 'behind', 'front', 'back', 'above', 'below',
+	'york', 'city', 'state', 'county', 'national', 'international', 'global',
+	'america', 'american', 'world', 'times', 'post', 'journal', 'tribune',
+	'meet', 'meets', 'meeting', 'talk', 'talks', 'talking', 'speech',
+	'move', 'moves', 'moving', 'turn', 'turns', 'turning', 'start', 'starts',
+	'stop', 'stops', 'stopping', 'help', 'helps', 'helping', 'lead', 'leads',
+	'face', 'faces', 'facing', 'hold', 'holds', 'holding', 'push', 'pushes',
+	'pull', 'pulls', 'fight', 'fights', 'fighting', 'rise', 'rises', 'rising',
+	'fall', 'falls', 'falling', 'open', 'opens', 'opening', 'close', 'closes',
+	'begin', 'begins', 'beginning', 'continue', 'continues', 'continuing',
+	'three', 'four', 'five', 'million', 'billion', 'percent', 'biggest'
+]);
+
+/**
+ * Context words that add meaning when paired with proper nouns
+ * These help form more descriptive topic names like "Trump Tariffs" or "China Trade"
+ */
+const CONTEXT_WORDS = new Set([
+	// Actions/events
+	'tariffs', 'sanctions', 'talks', 'deal', 'summit', 'war', 'crisis', 'election',
+	'vote', 'bill', 'probe', 'trial', 'ruling', 'order', 'ban', 'attack', 'strike',
+	'raid', 'arrest', 'indictment', 'charges', 'hearing', 'testimony', 'speech',
+	'visit', 'meeting', 'agreement', 'treaty', 'alliance', 'conflict', 'ceasefire',
+	// Topics
+	'trade', 'policy', 'reform', 'budget', 'debt', 'economy', 'inflation', 'jobs',
+	'immigration', 'border', 'climate', 'energy', 'tech', 'ai', 'security', 'defense',
+	'military', 'nuclear', 'missiles', 'troops', 'funding', 'spending', 'cuts',
+	'shutdown', 'impeachment', 'investigation', 'scandal', 'controversy', 'backlash',
+	// Relationships
+	'relations', 'tensions', 'dispute', 'standoff', 'negotiations', 'diplomacy',
+	// Outcomes
+	'approval', 'rejection', 'victory', 'defeat', 'breakthrough', 'failure', 'collapse'
 ]);
 
 /**
  * Extract key phrases from a headline using smarter heuristics
- * Focuses on proper nouns, named entities, and meaningful phrases
+ * Prioritizes multi-word phrases that provide context
  */
 function extractPhrases(title: string): string[] {
 	const phrases: string[] = [];
@@ -76,14 +114,35 @@ function extractPhrases(title: string): string[] {
 	// Clean but preserve case for proper noun detection
 	const cleaned = title.replace(/[^\w\s'-]/g, ' ').replace(/\s+/g, ' ').trim();
 	const words = cleaned.split(' ');
+	const lowerWords = words.map(w => w.toLowerCase());
 
-	// Strategy 1: Extract consecutive capitalized words (proper nouns/names)
+	// Strategy 1: Extract "Proper Noun + Context Word" patterns
+	// e.g., "Trump Tariffs", "China Trade", "Biden Immigration"
+	for (let i = 0; i < words.length - 1; i++) {
+		const word = words[i];
+		const nextWord = words[i + 1];
+		const nextLower = lowerWords[i + 1];
+
+		// Proper noun followed by context word
+		if (/^[A-Z][a-z]+/.test(word) && word.length >= 3) {
+			if (CONTEXT_WORDS.has(nextLower)) {
+				phrases.push(`${word} ${nextWord}`);
+			}
+		}
+
+		// Context word followed by proper noun (e.g., "Trade War", when about China Trade War)
+		if (CONTEXT_WORDS.has(lowerWords[i]) && /^[A-Z][a-z]+/.test(nextWord) && nextWord.length >= 3) {
+			phrases.push(`${word} ${nextWord}`);
+		}
+	}
+
+	// Strategy 2: Extract consecutive capitalized words (proper nouns/names)
 	// Allow short connectors (of, the, and) in the middle
 	let currentPhrase: string[] = [];
 	for (let i = 0; i < words.length; i++) {
 		const word = words[i];
 		const isCapitalized = /^[A-Z]/.test(word) && word.length > 1;
-		const isConnector = ['of', 'the', 'and', 'for', 'in', 'on', 'at', 'to'].includes(word.toLowerCase());
+		const isConnector = ['of', 'the', 'and', 'for', 'in', 'on', 'at', 'to'].includes(lowerWords[i]);
 
 		if (isCapitalized) {
 			currentPhrase.push(word);
@@ -110,9 +169,8 @@ function extractPhrases(title: string): string[] {
 		phrases.push(currentPhrase.join(' '));
 	}
 
-	// Strategy 2: Find mid-sentence capitalized words (definitely proper nouns)
-	// Words after index 0 that are capitalized are almost certainly proper nouns
-	// These are valuable single-word entities like "Trump", "Zelensky", "China"
+	// Strategy 3: Find mid-sentence capitalized words (definitely proper nouns)
+	// Include these even if they appear in multi-word phrases - they provide additional signal
 	for (let i = 1; i < words.length; i++) {
 		const word = words[i];
 		// Mid-sentence capitalized word with 4+ letters = almost certainly a proper noun
@@ -121,21 +179,31 @@ function extractPhrases(title: string): string[] {
 		}
 	}
 
-	// Strategy 3: First word if it looks like a proper noun (name pattern)
+	// Strategy 4: First word if it looks like a proper noun (name pattern)
 	// Only add if it's 4+ letters to avoid generic words like "The", "New"
 	if (words.length > 0 && /^[A-Z][a-z]+/.test(words[0]) && words[0].length >= 4) {
 		phrases.push(words[0]);
 	}
 
-	// Dedupe and filter out common words
+	// Dedupe, filter out common words, and prioritize multi-word phrases
 	const unique = [...new Set(phrases)];
-	return unique.filter(p => p.length >= 4 && !COMMON_WORDS.has(p.toLowerCase()));
+	const filtered = unique.filter(p => p.length >= 4 && !COMMON_WORDS.has(p.toLowerCase()));
+
+	// Sort by word count (prefer longer phrases) then alphabetically
+	filtered.sort((a, b) => {
+		const aWords = a.split(' ').length;
+		const bWords = b.split(' ').length;
+		if (bWords !== aWords) return bWords - aWords;
+		return a.localeCompare(b);
+	});
+
+	return filtered;
 }
 
 /**
  * Track narratives across news items
  */
-export function trackNarratives(items: NewsItem[], minMentions = 3): Narrative[] {
+export function trackNarratives(items: NewsItem[], minMentions = 2): Narrative[] {
 	// Group items by time window (last 24h, last week, etc.)
 	const now = Date.now();
 	const day = 24 * 60 * 60 * 1000;

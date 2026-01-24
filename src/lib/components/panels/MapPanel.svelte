@@ -49,6 +49,111 @@
 	let tooltipVisible = $state(false);
 	let currentTooltipKey = $state<string | null>(null); // Track which location's tooltip is active
 
+	// Weather widget state
+	interface CityWeather {
+		city: string;
+		temp: number | null;
+		condition: string;
+		loading: boolean;
+	}
+	let cityWeather = $state<CityWeather[]>([
+		{ city: 'DC', temp: null, condition: '—', loading: true },
+		{ city: 'London', temp: null, condition: '—', loading: true },
+		{ city: 'Beijing', temp: null, condition: '—', loading: true },
+		{ city: 'Tokyo', temp: null, condition: '—', loading: true }
+	]);
+
+	// Weather widget city coordinates
+	const WEATHER_CITIES = [
+		{ city: 'DC', lat: 38.9, lon: -77.0 },
+		{ city: 'London', lat: 51.5, lon: -0.1 },
+		{ city: 'Beijing', lat: 39.9, lon: 116.4 },
+		{ city: 'Tokyo', lat: 35.7, lon: 139.7 }
+	];
+
+	async function loadWeatherWidget(): Promise<void> {
+		for (let i = 0; i < WEATHER_CITIES.length; i++) {
+			const { city, lat, lon } = WEATHER_CITIES[i];
+			const weather = await getWeather(lat, lon);
+			if (weather) {
+				cityWeather[i] = {
+					city,
+					temp: weather.temp,
+					condition: weather.condition,
+					loading: false
+				};
+			} else {
+				cityWeather[i] = { ...cityWeather[i], loading: false };
+			}
+		}
+	}
+
+	// Radar layer state
+	let radarPath = $state<string | null>(null);
+	let radarEnabled = $state(true);
+
+	// Radar tile configuration - using zoom level 2 for good coverage
+	const RADAR_ZOOM = 2;
+	const RADAR_TILE_SIZE = 256;
+	const RADAR_TILES_PER_ROW = Math.pow(2, RADAR_ZOOM); // 4 tiles per row at zoom 2
+
+	async function loadRadarData(): Promise<void> {
+		try {
+			const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+			const data = await res.json();
+			// Get the most recent radar frame
+			const frames = data.radar?.past || [];
+			if (frames.length > 0) {
+				radarPath = frames[frames.length - 1].path;
+			}
+		} catch (err) {
+			console.warn('Failed to load radar data:', err);
+		}
+	}
+
+	// Generate radar tile URLs for the visible area
+	function getRadarTileUrl(x: number, y: number): string {
+		if (!radarPath) return '';
+		// RainViewer tile URL format: {path}/{size}/{z}/{x}/{y}/{color}/{options}.png
+		// color 6 = universal blue, options 1_1 = smooth + snow
+		return `https://tilecache.rainviewer.com${radarPath}/${RADAR_TILE_SIZE}/${RADAR_ZOOM}/${x}/${y}/6/1_1.png`;
+	}
+
+	// Calculate tile positions for the map using percentages
+	// Our map is 800x400, equirectangular projection
+	// Mercator tiles don't perfectly align, but we'll approximate
+	function getRadarTiles(): Array<{ x: number; y: number; url: string; leftPct: number; topPct: number; widthPct: number; heightPct: number }> {
+		if (!radarPath) return [];
+
+		const tiles: Array<{ x: number; y: number; url: string; leftPct: number; topPct: number; widthPct: number; heightPct: number }> = [];
+
+		// At zoom 2, we have 4x4 = 16 tiles covering the world
+		// Use percentages for responsive positioning
+		const tilePct = 100 / RADAR_TILES_PER_ROW; // 25% per tile
+
+		for (let y = 0; y < RADAR_TILES_PER_ROW; y++) {
+			for (let x = 0; x < RADAR_TILES_PER_ROW; x++) {
+				tiles.push({
+					x,
+					y,
+					url: getRadarTileUrl(x, y),
+					leftPct: x * tilePct,
+					topPct: y * tilePct,
+					widthPct: tilePct,
+					heightPct: tilePct
+				});
+			}
+		}
+
+		return tiles;
+	}
+
+	// Refresh radar every 10 minutes
+	let radarInterval: ReturnType<typeof setInterval> | null = null;
+
+	// Track current zoom transform for radar layer synchronization
+	let currentTransform = $state({ x: 0, y: 0, k: 1 });
+
 	// Weather cache
 	interface CacheEntry<T> {
 		data: T;
@@ -411,6 +516,8 @@
 			})
 			.on('zoom', (event) => {
 				mapGroup.attr('transform', event.transform.toString());
+				// Update transform state for radar layer synchronization
+				currentTransform = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
 			});
 
 		enableZoom();
@@ -681,11 +788,33 @@
 
 	onMount(() => {
 		initMap();
+		loadWeatherWidget();
+		loadRadarData();
+
+		// Refresh radar every 10 minutes
+		radarInterval = setInterval(loadRadarData, 10 * 60 * 1000);
+
+		return () => {
+			if (radarInterval) clearInterval(radarInterval);
+		};
 	});
 </script>
 
 <Panel id="map" title="Global Situation" {loading} {error}>
 	<div class="map-container" bind:this={mapContainer}>
+		{#if radarEnabled && radarPath}
+			<div class="radar-layer" style="transform: translate({currentTransform.x}px, {currentTransform.y}px) scale({currentTransform.k}); transform-origin: 0 0;">
+				{#each getRadarTiles() as tile (tile.url)}
+					<img
+						src={tile.url}
+						alt=""
+						class="radar-tile"
+						style="left: {tile.leftPct}%; top: {tile.topPct}%; width: {tile.widthPct}%; height: {tile.heightPct}%;"
+						loading="lazy"
+					/>
+				{/each}
+			</div>
+		{/if}
 		<svg class="map-svg"></svg>
 		{#if tooltipVisible && tooltipContent}
 			<div
@@ -703,7 +832,20 @@
 			<button class="zoom-btn" onclick={zoomOut} title="Zoom out">−</button>
 			<button class="zoom-btn" onclick={resetZoom} title="Reset">⟲</button>
 		</div>
-			</div>
+		<div class="weather-widget">
+			{#each cityWeather as weather}
+				<div class="weather-item">
+					<span class="weather-city">{weather.city}</span>
+					{#if weather.loading}
+						<span class="weather-loading">...</span>
+					{:else}
+						<span class="weather-temp">{weather.temp !== null ? `${weather.temp}°` : '—'}</span>
+						<span class="weather-condition">{weather.condition}</span>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	</div>
 </Panel>
 
 <style>
@@ -719,6 +861,25 @@
 	.map-svg {
 		width: 100%;
 		height: 100%;
+		position: relative;
+		z-index: 1;
+	}
+
+	.radar-layer {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		z-index: 2;
+		opacity: 0.6;
+		pointer-events: none;
+		mix-blend-mode: screen;
+	}
+
+	.radar-tile {
+		position: absolute;
+		object-fit: cover;
 	}
 
 	.map-tooltip {
@@ -731,7 +892,7 @@
 		color: #ddd;
 		max-width: 250px;
 		pointer-events: none;
-		z-index: 100;
+		z-index: 10;
 	}
 
 	.tooltip-line {
@@ -745,6 +906,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
+		z-index: 5;
 	}
 
 	.zoom-btn {
@@ -764,6 +926,50 @@
 	.zoom-btn:hover {
 		background: rgba(40, 40, 40, 0.9);
 		color: #fff;
+	}
+
+	/* Weather widget */
+	.weather-widget {
+		position: absolute;
+		bottom: 0.5rem;
+		left: 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		background: rgba(10, 10, 10, 0.85);
+		border: 1px solid #333;
+		border-radius: 4px;
+		padding: 0.35rem 0.5rem;
+		font-size: 0.55rem;
+		font-family: 'SF Mono', 'JetBrains Mono', monospace;
+		z-index: 5;
+	}
+
+	.weather-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.weather-city {
+		color: var(--text-muted);
+		width: 3rem;
+	}
+
+	.weather-temp {
+		color: var(--text);
+		width: 2rem;
+		text-align: right;
+	}
+
+	.weather-condition {
+		color: var(--text-dim);
+		font-size: 0.5rem;
+	}
+
+	.weather-loading {
+		color: var(--text-muted);
+		opacity: 0.6;
 	}
 
 	/* Pulse animation for hotspots */
