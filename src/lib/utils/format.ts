@@ -120,19 +120,19 @@ export function getTimestampFreshness(date: Date): number {
 
 /**
  * Get the color for a timestamp based on its freshness
- * Fresh items are bright (close to white), older items fade to muted gray
+ * Fresh items use warning yellow (#ffaa00), older items fade to muted gray
  */
 export function getTimestampColor(date: Date): string {
 	const freshness = getTimestampFreshness(date);
-	// Interpolate between muted gray (#6b7280) and bright white (#ffffff)
+	// Interpolate between muted gray (#6b7280) and warning yellow (#ffaa00)
 	const mutedR = 107,
 		mutedG = 114,
 		mutedB = 128;
-	const brightR = 255,
-		brightG = 255,
-		brightB = 255;
-	const r = Math.round(mutedR + (brightR - mutedR) * freshness);
-	const g = Math.round(mutedG + (brightG - mutedG) * freshness);
-	const b = Math.round(mutedB + (brightB - mutedB) * freshness);
+	const freshR = 255,
+		freshG = 170,
+		freshB = 0;
+	const r = Math.round(mutedR + (freshR - mutedR) * freshness);
+	const g = Math.round(mutedG + (freshG - mutedG) * freshness);
+	const b = Math.round(mutedB + (freshB - mutedB) * freshness);
 	return `rgb(${r}, ${g}, ${b})`;
 }
