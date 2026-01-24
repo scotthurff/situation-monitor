@@ -19,12 +19,13 @@ export interface FeedSource {
  */
 export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 	// General international politics
+	// Note: Some feeds use Google News RSS as proxy to avoid datacenter IP blocks
 	politics: [
 		{ name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml', priority: 1, bias: 'center' },
 		{ name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', priority: 1, bias: 'center-left' },
 		{ name: 'Guardian World', url: 'https://www.theguardian.com/world/rss', priority: 2, bias: 'center-left' },
-		{ name: 'Reuters World', url: 'https://www.reutersagency.com/feed/?taxonomy=best-sectors&post_type=best', priority: 1, bias: 'center' },
-		{ name: 'AP News', url: 'https://rsshub.app/apnews/topics/apf-topnews', priority: 1, bias: 'center' }
+		{ name: 'Reuters World', url: 'https://news.google.com/rss/search?q=site:reuters.com+world+news&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'AP News', url: 'https://news.google.com/rss/search?q=site:apnews.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' }
 	],
 
 	// US-specific political news - comprehensive coverage across the spectrum
@@ -32,11 +33,11 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		// Curated Aggregators
 		{ name: 'Memeorandum', url: 'http://www.memeorandum.com/feed.xml', priority: 1, bias: 'center' },
 
-		// Primary US Politics Sources
-		{ name: 'Politico', url: 'https://www.politico.com/rss/politicopicks.xml', priority: 1, bias: 'center' },
+		// Primary US Politics Sources (using Google News RSS to avoid IP blocks)
+		{ name: 'Politico', url: 'https://news.google.com/rss/search?q=site:politico.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'The Hill', url: 'https://thehill.com/feed/', priority: 1, bias: 'center' },
 		{ name: 'Roll Call', url: 'https://www.rollcall.com/feed/', priority: 1, bias: 'center' },
-		{ name: 'C-SPAN', url: 'https://www.c-span.org/feeds/podcast/news.xml', priority: 1, bias: 'center' },
+		{ name: 'C-SPAN', url: 'https://news.google.com/rss/search?q=site:c-span.org&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 
 		// Center-Left Sources
 		{ name: 'Washington Post', url: 'https://feeds.washingtonpost.com/rss/politics', priority: 1, bias: 'center-left' },
@@ -61,11 +62,11 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'SCOTUSblog', url: 'https://www.scotusblog.com/feed/', priority: 1, bias: 'center' },
 		{ name: 'Oyez', url: 'https://www.oyez.org/cases/rss', priority: 2, bias: 'center' },
 
-		// Legal News
-		{ name: 'Law360', url: 'https://www.law360.com/rss/articles', priority: 1, bias: 'center' },
-		{ name: 'Reuters Legal', url: 'https://www.reuters.com/legal/rss', priority: 1, bias: 'center' },
+		// Legal News (using Google News RSS to avoid IP blocks)
+		{ name: 'Law360', url: 'https://news.google.com/rss/search?q=site:law360.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'Reuters Legal', url: 'https://news.google.com/rss/search?q=site:reuters.com+legal&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'Lawfare', url: 'https://www.lawfaremedia.org/feed', priority: 1, bias: 'center' },
-		{ name: 'Just Security', url: 'https://www.justsecurity.org/feed/', priority: 2, bias: 'center-left' },
+		{ name: 'Just Security', url: 'https://news.google.com/rss/search?q=site:justsecurity.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-left' },
 
 		// DOJ and Courts
 		{ name: 'DOJ Press', url: 'https://www.justice.gov/feeds/opa/justice-news.xml', priority: 1, bias: 'center' },
@@ -78,11 +79,11 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 
 	// Immigration and border enforcement
 	immigration: [
-		// Government Sources
-		{ name: 'ICE News', url: 'https://www.ice.gov/rss/news.xml', priority: 1, bias: 'center' },
-		{ name: 'CBP Newsroom', url: 'https://www.cbp.gov/newsroom/rss-feeds/cbp-newsroom', priority: 1, bias: 'center' },
-		{ name: 'USCIS News', url: 'https://www.uscis.gov/rss/news', priority: 2, bias: 'center' },
-		{ name: 'DHS Press', url: 'https://www.dhs.gov/news-releases/rss.xml', priority: 1, bias: 'center' },
+		// Government Sources (using Google News RSS to avoid IP blocks)
+		{ name: 'ICE News', url: 'https://news.google.com/rss/search?q=site:ice.gov&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'CBP Newsroom', url: 'https://news.google.com/rss/search?q=site:cbp.gov&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'USCIS News', url: 'https://news.google.com/rss/search?q=site:uscis.gov&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center' },
+		{ name: 'DHS Press', url: 'https://news.google.com/rss/search?q=site:dhs.gov+news&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 
 		// Immigration News & Analysis
 		{ name: 'Migration Policy', url: 'https://www.migrationpolicy.org/rss.xml', priority: 1, bias: 'center' },
@@ -91,7 +92,7 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'Immigration Impact', url: 'https://immigrationimpact.com/feed/', priority: 3, bias: 'center-left' },
 
 		// Legal Immigration News
-		{ name: 'AILA', url: 'https://www.aila.org/rss', priority: 2, bias: 'center-left' }
+		{ name: 'AILA', url: 'https://news.google.com/rss/search?q=site:aila.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-left' }
 	],
 
 	tech: [
@@ -133,23 +134,24 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 	],
 
 	// Think tanks and intelligence analysis - balanced across political spectrum
+	// Using Google News RSS for sites that block datacenter IPs
 	intel: [
 		// Center/Center-Left Think Tanks
-		{ name: 'CSIS', url: 'https://www.csis.org/analysis/feed', priority: 1, bias: 'center' },
+		{ name: 'CSIS', url: 'https://news.google.com/rss/search?q=site:csis.org&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'Brookings', url: 'https://www.brookings.edu/feed/', priority: 1, bias: 'center-left' },
-		{ name: 'CFR', url: 'https://www.cfr.org/rss.xml', priority: 2, bias: 'center' },
+		{ name: 'CFR', url: 'https://news.google.com/rss/search?q=site:cfr.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center' },
 		{ name: 'RAND', url: 'https://www.rand.org/news.xml', priority: 2, bias: 'center' },
 		{ name: 'Carnegie', url: 'https://carnegieendowment.org/rss/solr/?fa=recentpubs', priority: 2, bias: 'center' },
 		{ name: 'Atlantic Council', url: 'https://www.atlanticcouncil.org/feed/', priority: 2, bias: 'center' },
-		{ name: 'Center for American Progress', url: 'https://www.americanprogress.org/feed/', priority: 3, bias: 'left' },
+		{ name: 'Center for American Progress', url: 'https://news.google.com/rss/search?q=site:americanprogress.org&hl=en-US&gl=US&ceid=US:en', priority: 3, bias: 'left' },
 
 		// Center-Right/Right Think Tanks
-		{ name: 'Heritage Foundation', url: 'https://www.heritage.org/rss/index.xml', priority: 1, bias: 'right' },
+		{ name: 'Heritage Foundation', url: 'https://news.google.com/rss/search?q=site:heritage.org&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'right' },
 		{ name: 'AEI', url: 'https://www.aei.org/feed/', priority: 1, bias: 'center-right' },
 		{ name: 'Cato Institute', url: 'https://www.cato.org/rss.xml', priority: 2, bias: 'center-right' },
-		{ name: 'Hoover Institution', url: 'https://www.hoover.org/rss-feeds', priority: 2, bias: 'center-right' },
-		{ name: 'Manhattan Institute', url: 'https://www.manhattan-institute.org/feed', priority: 3, bias: 'center-right' },
-		{ name: 'Hudson Institute', url: 'https://www.hudson.org/feed', priority: 3, bias: 'center-right' }
+		{ name: 'Hoover Institution', url: 'https://news.google.com/rss/search?q=site:hoover.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-right' },
+		{ name: 'Manhattan Institute', url: 'https://news.google.com/rss/search?q=site:manhattan-institute.org&hl=en-US&gl=US&ceid=US:en', priority: 3, bias: 'center-right' },
+		{ name: 'Hudson Institute', url: 'https://news.google.com/rss/search?q=site:hudson.org&hl=en-US&gl=US&ceid=US:en', priority: 3, bias: 'center-right' }
 	],
 
 	// Macroeconomic data and analysis
@@ -160,10 +162,10 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'NY Fed', url: 'https://libertystreeteconomics.newyorkfed.org/feeds/posts/default', priority: 2 },
 		{ name: 'ECB', url: 'https://www.ecb.europa.eu/rss/press.html', priority: 2 },
 
-		// Economic Data
+		// Economic Data (using Google News RSS for blocked gov sites)
 		{ name: 'BLS News', url: 'https://www.bls.gov/feed/bls_latest.rss', priority: 1 },
-		{ name: 'BEA News', url: 'https://www.bea.gov/rss.xml', priority: 1 },
-		{ name: 'Census Economic', url: 'https://www.census.gov/economic-indicators/rss/rss.xml', priority: 2 },
+		{ name: 'BEA News', url: 'https://news.google.com/rss/search?q=site:bea.gov&hl=en-US&gl=US&ceid=US:en', priority: 1 },
+		{ name: 'Census Economic', url: 'https://news.google.com/rss/search?q=site:census.gov+economic&hl=en-US&gl=US&ceid=US:en', priority: 2 },
 
 		// Economic Analysis
 		{ name: 'Calculated Risk', url: 'https://www.calculatedriskblog.com/feeds/posts/default?alt=rss', priority: 1 },
@@ -177,10 +179,10 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
  * Includes balanced representation across the political spectrum
  */
 export const INTEL_SOURCES: IntelSource[] = [
-	// Think Tanks - Center/Center-Left
+	// Think Tanks - Center/Center-Left (using Google News RSS for blocked sites)
 	{
 		name: 'CSIS',
-		url: 'https://www.csis.org/analysis/feed',
+		url: 'https://news.google.com/rss/search?q=site:csis.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['defense', 'geopolitics', 'technology']
 	},
@@ -192,7 +194,7 @@ export const INTEL_SOURCES: IntelSource[] = [
 	},
 	{
 		name: 'CFR',
-		url: 'https://www.cfr.org/rss.xml',
+		url: 'https://news.google.com/rss/search?q=site:cfr.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['foreign-policy', 'diplomacy']
 	},
@@ -215,10 +217,10 @@ export const INTEL_SOURCES: IntelSource[] = [
 		topics: ['defense', 'geopolitics', 'europe']
 	},
 
-	// Think Tanks - Center-Right/Right
+	// Think Tanks - Center-Right/Right (using Google News RSS for blocked sites)
 	{
 		name: 'Heritage Foundation',
-		url: 'https://www.heritage.org/rss/index.xml',
+		url: 'https://news.google.com/rss/search?q=site:heritage.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['policy', 'economics', 'defense']
 	},
@@ -236,19 +238,19 @@ export const INTEL_SOURCES: IntelSource[] = [
 	},
 	{
 		name: 'Hoover Institution',
-		url: 'https://www.hoover.org/rss-feeds',
+		url: 'https://news.google.com/rss/search?q=site:hoover.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['economics', 'history', 'policy']
 	},
 	{
 		name: 'Hudson Institute',
-		url: 'https://www.hudson.org/feed',
+		url: 'https://news.google.com/rss/search?q=site:hudson.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['defense', 'foreign-policy', 'technology']
 	},
 	{
 		name: 'Manhattan Institute',
-		url: 'https://www.manhattan-institute.org/feed',
+		url: 'https://news.google.com/rss/search?q=site:manhattan-institute.org&hl=en-US&gl=US&ceid=US:en',
 		type: 'think-tank',
 		topics: ['economics', 'urban-policy', 'education']
 	},
