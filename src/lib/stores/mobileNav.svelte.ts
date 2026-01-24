@@ -21,7 +21,7 @@ export const MOBILE_TABS: TabConfig[] = [
 // Reactive state
 let activeTab = $state<MobileTab>('news');
 let moreExpanded = $state<Record<string, boolean>>({});
-let intelSubTab = $state<'ai' | 'intel'>('ai');
+let intelSubTab = $state<'ai' | 'intel'>('intel');
 
 /**
  * Set the active tab
