@@ -49,35 +49,146 @@ export const GET: RequestHandler = async ({ url }) => {
 		const parsedUrl = new URL(decodedUrl);
 
 		// Allowlist of domains we'll proxy (security measure)
+		// Includes all RSS feed domains from feeds.ts configuration
 		const allowedDomains = [
-			'news.google.com',
-			'rsshub.app',
-			'feeds.feedburner.com',
-			'rss.nytimes.com',
-			'feeds.bbci.co.uk',
-			'www.politico.com',
-			'thehill.com',
-			'www.theverge.com',
-			'techcrunch.com',
-			'arstechnica.com',
-			'www.wired.com',
+			// APIs
 			'api.gdeltproject.org',
-			'www.federalreserve.gov',
-			'www.whitehouse.gov',
-			'www.oyez.org',
-			'www.migrationpolicy.org',
-			'www.scotusblog.com',
-			'www.calculatedriskblog.com',
-			'feeds.zerohedge.com',
-			'query1.finance.yahoo.com',
 			'api.coingecko.com',
-			'gamma-api.polymarket.com',
-			'api.elections.kalshi.com',
-			'api.usaspending.gov',
 			'api.congress.gov',
+			'api.usaspending.gov',
+			'api.elections.kalshi.com',
 			'api.alternative.me',
 			'api.stlouisfed.org',
-			'finnhub.io'
+			'gamma-api.polymarket.com',
+			'query1.finance.yahoo.com',
+			'finnhub.io',
+
+			// Major news aggregators
+			'news.google.com',
+			'rsshub.app',
+			'hnrss.org',
+			'www.techmeme.com',
+			'www.memeorandum.com',
+
+			// Wire services & mainstream news
+			'feeds.bbci.co.uk',
+			'rss.nytimes.com',
+			'feeds.npr.org',
+			'www.theguardian.com',
+			'www.reutersagency.com',
+			'www.reuters.com',
+
+			// US Politics
+			'www.politico.com',
+			'thehill.com',
+			'www.rollcall.com',
+			'www.c-span.org',
+			'feeds.washingtonpost.com',
+			'www.axios.com',
+			'www.vox.com',
+			'feeds.a.dj.com',
+			'www.nationalreview.com',
+			'thedispatch.com',
+			'reason.com',
+			'www.congress.gov',
+			'www.govtrack.us',
+
+			// Legal
+			'www.scotusblog.com',
+			'www.oyez.org',
+			'www.law360.com',
+			'www.lawfaremedia.org',
+			'www.justsecurity.org',
+			'www.justice.gov',
+			'www.courthousenews.com',
+			'electionlawblog.org',
+
+			// Immigration
+			'www.ice.gov',
+			'www.cbp.gov',
+			'www.uscis.gov',
+			'www.dhs.gov',
+			'www.migrationpolicy.org',
+			'trac.syr.edu',
+			'www.borderreport.com',
+			'immigrationimpact.com',
+			'www.aila.org',
+
+			// Tech
+			'techcrunch.com',
+			'feeds.arstechnica.com',
+			'www.theverge.com',
+			'www.wired.com',
+
+			// Finance
+			'www.cnbc.com',
+			'feeds.marketwatch.com',
+			'feeds.bloomberg.com',
+			'www.ft.com',
+			'feeds.feedburner.com',
+			'feeds.zerohedge.com',
+			'www.calculatedriskblog.com',
+
+			// Government
+			'www.whitehouse.gov',
+			'www.federalreserve.gov',
+			'www.sec.gov',
+			'www.defense.gov',
+			'www.state.gov',
+			'home.treasury.gov',
+			'www.gao.gov',
+			'www.cbo.gov',
+
+			// AI
+			'openai.com',
+			'rss.arxiv.org',
+			'deepmind.google',
+			'news.mit.edu',
+			'www.artificialintelligence-news.com',
+
+			// Think tanks - Center/Left
+			'www.csis.org',
+			'www.brookings.edu',
+			'www.cfr.org',
+			'www.rand.org',
+			'carnegieendowment.org',
+			'www.atlanticcouncil.org',
+			'www.americanprogress.org',
+
+			// Think tanks - Center-Right/Right
+			'www.heritage.org',
+			'www.aei.org',
+			'www.cato.org',
+			'www.hoover.org',
+			'www.manhattan-institute.org',
+			'www.hudson.org',
+
+			// Macro/Economics
+			'fredblog.stlouisfed.org',
+			'libertystreeteconomics.newyorkfed.org',
+			'www.ecb.europa.eu',
+			'www.bls.gov',
+			'www.bea.gov',
+			'www.census.gov',
+			'econbrowser.com',
+			'marginalrevolution.com',
+
+			// Defense & Intel
+			'www.defenseone.com',
+			'warontherocks.com',
+			'breakingdefense.com',
+			'www.thedrive.com',
+			'thediplomat.com',
+			'www.al-monitor.com',
+			'www.bellingcat.com',
+
+			// Cyber
+			'www.cisa.gov',
+			'krebsonsecurity.com',
+			'therecord.media',
+
+			// Government research
+			'crsreports.congress.gov'
 		];
 
 		const isAllowed = allowedDomains.some(
@@ -105,10 +216,11 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		// Fetch the external resource
+		// Use a browser-like User-Agent to avoid being blocked by sites that filter bots
 		const response = await fetch(decodedUrl, {
 			headers: {
-				'User-Agent': 'SituationMonitor/1.0',
-				Accept: '*/*'
+				'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+				Accept: 'application/rss+xml, application/xml, text/xml, */*'
 			}
 		});
 

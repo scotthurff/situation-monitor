@@ -6,7 +6,55 @@ import { browser } from '$app/environment';
 import { newsClient } from '$lib/services';
 import { FEEDS, INTEL_SOURCES, fetchWithProxy, CACHE_TTLS, logger } from '$lib/config';
 import { detectAlertLevel, detectRegions, detectSentiment } from '$lib/config/keywords';
+import { feedDiagnosticsStore } from '$lib/stores';
 import type { NewsItem, NewsCategory } from '$lib/types';
+
+/**
+ * Filter out promotional/spam content that pollutes feeds
+ * Returns true if content should be EXCLUDED
+ */
+function isPromotionalContent(title: string, description: string): boolean {
+	const text = `${title} ${description}`.toLowerCase();
+
+	// Promotional patterns to filter out
+	const spamPatterns = [
+		// Deals and discounts
+		/\bcoupon\b/,
+		/\bdiscount\b/,
+		/\b\d+%\s*off\b/,
+		/\bpromo\s*code\b/,
+		/\bsale\s*price\b/,
+		/\bbest\s*(deals?|prices?|buys?)\b/,
+		/\bsave\s*\$?\d+/,
+		/\bflash\s*sale\b/,
+		/\bblack\s*friday\b/,
+		/\bcyber\s*monday\b/,
+		/\bprime\s*day\b/,
+		// Affiliate/buying guides
+		/\bbuying\s*guide\b/,
+		/\bbest\s*\w+\s*to\s*buy\b/,
+		/\bwhere\s*to\s*buy\b/,
+		/\bshop\s*now\b/,
+		/\bbuy\s*now\b/,
+		// Product roundups
+		/\bbest\s*\w+\s*(of\s*)?\d{4}\b/,
+		/\btop\s*\d+\s*\w+\s*(of\s*)?\d{4}\b/,
+		/\bvs\.?\s*which\s*(one\s*)?(to\s*)?buy/i,
+		// Streaming deals
+		/\bstreaming\s*(deal|subscription)/,
+		/\bfree\s*trial\b/,
+		/\bsubscription\s*deal\b/,
+		// Gift guides
+		/\bgift\s*guide\b/,
+		/\bgifts?\s*for\b/,
+		// Generic spam
+		/\bsponsored\b/,
+		/\badvertisement\b/,
+		/\baffiliate\b/
+	];
+
+	return spamPatterns.some(pattern => pattern.test(text));
+}
 
 /**
  * Get DOMParser that works in both browser and server
@@ -56,6 +104,11 @@ async function parseRSS(xml: string, source: string, category: NewsCategory): Pr
 
 				if (!title) return;
 
+				// Filter out promotional/spam content
+				if (isPromotionalContent(title, description)) {
+					return;
+				}
+
 				const pubDate = pubDateStr ? new Date(pubDateStr) : new Date();
 				const fullText = `${title} ${description}`;
 
@@ -90,11 +143,31 @@ async function fetchFeed(
 	source: string,
 	category: NewsCategory
 ): Promise<NewsItem[]> {
+	const startTime = Date.now();
+
+	if (browser) {
+		feedDiagnosticsStore.recordPending(source, url);
+	}
+
 	try {
 		const response = await fetchWithProxy(url);
 		const xml = await response.text();
-		return await parseRSS(xml, source, category);
+		const items = await parseRSS(xml, source, category);
+		const duration = Date.now() - startTime;
+
+		if (browser) {
+			feedDiagnosticsStore.recordSuccess(source, url, items.length, duration);
+		}
+
+		return items;
 	} catch (err) {
+		const duration = Date.now() - startTime;
+		const errorMsg = err instanceof Error ? err.message : String(err);
+
+		if (browser) {
+			feedDiagnosticsStore.recordFailure(source, url, errorMsg, duration);
+		}
+
 		logger.warn('News', `Failed to fetch ${source}:`, err);
 		return [];
 	}
@@ -151,6 +224,11 @@ export async function fetchAllNews(): Promise<Map<NewsCategory, NewsItem[]>> {
 	];
 	const results = new Map<NewsCategory, NewsItem[]>();
 
+	// Start diagnostics tracking
+	if (browser) {
+		feedDiagnosticsStore.start();
+	}
+
 	// Fetch categories in parallel
 	await Promise.all(
 		categories.map(async (category) => {
@@ -158,6 +236,24 @@ export async function fetchAllNews(): Promise<Map<NewsCategory, NewsItem[]>> {
 			results.set(category, items);
 		})
 	);
+
+	// Finish diagnostics and expose to console
+	if (browser) {
+		feedDiagnosticsStore.finish();
+
+		// Expose diagnostics to window for easy console access
+		(window as unknown as { __feedDiagnostics: unknown }).__feedDiagnostics = feedDiagnosticsStore;
+
+		// Log summary to console
+		const summary = feedDiagnosticsStore.summary;
+		console.log(
+			`[Feed Diagnostics] ${summary.succeeded}/${summary.total} feeds loaded (${summary.successRate}% success rate), ${summary.totalItems} total items`
+		);
+
+		if (summary.failed > 0) {
+			console.log(`[Feed Diagnostics] Failed feeds:`, feedDiagnosticsStore.failedFeeds.map((f) => f.name).join(', '));
+		}
+	}
 
 	return results;
 }
