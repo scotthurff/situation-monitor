@@ -55,7 +55,7 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		// Center-Right Sources
 		{ name: 'Wall Street Journal Politics', url: 'https://feeds.a.dj.com/rss/RSSOpinion.xml', priority: 1, bias: 'center-right' },
 		{ name: 'National Review', url: 'https://www.nationalreview.com/feed/', priority: 2, bias: 'right' },
-		{ name: 'The Dispatch', url: 'https://thedispatch.com/feed/', priority: 2, bias: 'center-right' },
+		{ name: 'The Dispatch', url: 'https://news.google.com/rss/search?q=site:thedispatch.com+politics&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-right' },
 		{ name: 'Reason', url: 'https://reason.com/feed/', priority: 3, bias: 'center-right' },
 
 		// Congressional Coverage
