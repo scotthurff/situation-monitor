@@ -25,13 +25,18 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', priority: 1, bias: 'center-left' },
 		{ name: 'Guardian World', url: 'https://www.theguardian.com/world/rss', priority: 2, bias: 'center-left' },
 		{ name: 'Reuters World', url: 'https://news.google.com/rss/search?q=site:reuters.com+world+news&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
-		{ name: 'AP News', url: 'https://news.google.com/rss/search?q=site:apnews.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' }
+		{ name: 'AP News', url: 'https://news.google.com/rss/search?q=site:apnews.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'Foreign Affairs', url: 'https://news.google.com/rss/search?q=site:foreignaffairs.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'The Economist', url: 'https://news.google.com/rss/search?q=site:economist.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'Foreign Policy', url: 'https://news.google.com/rss/search?q=site:foreignpolicy.com&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center' }
 	],
 
 	// US-specific political news - comprehensive coverage across the spectrum
 	uspolitics: [
 		// Curated Aggregators
 		{ name: 'Memeorandum', url: 'http://www.memeorandum.com/feed.xml', priority: 1, bias: 'center' },
+		{ name: 'RealClearPolitics', url: 'https://news.google.com/rss/search?q=site:realclearpolitics.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
+		{ name: 'Drudge Report', url: 'https://news.google.com/rss/search?q=site:drudgereport.com&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'right' },
 
 		// Primary US Politics Sources (using Google News RSS to avoid IP blocks)
 		{ name: 'Politico', url: 'https://news.google.com/rss/search?q=site:politico.com&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
@@ -42,8 +47,10 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		// Center-Left Sources
 		{ name: 'Washington Post', url: 'https://feeds.washingtonpost.com/rss/politics', priority: 1, bias: 'center-left' },
 		{ name: 'NY Times Politics', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml', priority: 1, bias: 'center-left' },
+		{ name: 'The Atlantic', url: 'https://news.google.com/rss/search?q=site:theatlantic.com+politics&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-left' },
 		{ name: 'Axios', url: 'https://www.axios.com/feeds/feed.rss', priority: 2, bias: 'center' },
 		{ name: 'Vox', url: 'https://www.vox.com/rss/index.xml', priority: 3, bias: 'left' },
+		{ name: 'ProPublica', url: 'https://news.google.com/rss/search?q=site:propublica.org&hl=en-US&gl=US&ceid=US:en', priority: 2, bias: 'center-left' },
 
 		// Center-Right Sources
 		{ name: 'Wall Street Journal Politics', url: 'https://feeds.a.dj.com/rss/RSSOpinion.xml', priority: 1, bias: 'center-right' },
