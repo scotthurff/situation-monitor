@@ -130,7 +130,7 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'ArXiv AI', url: 'https://rss.arxiv.org/rss/cs.AI', priority: 1 },
 		{ name: 'DeepMind Blog', url: 'https://deepmind.google/blog/rss.xml', priority: 2 },
 		{ name: 'MIT AI', url: 'https://news.mit.edu/topic/artificial-intelligence2-rss.xml', priority: 2 },
-		{ name: 'AI News', url: 'https://www.artificialintelligence-news.com/feed/', priority: 3 }
+		{ name: 'AI News', url: 'https://news.google.com/rss/search?q=artificial+intelligence+news&hl=en-US&gl=US&ceid=US:en', priority: 3 }
 	],
 
 	// Think tanks and intelligence analysis - balanced across political spectrum
