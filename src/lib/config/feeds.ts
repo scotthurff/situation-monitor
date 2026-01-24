@@ -59,7 +59,7 @@ export const FEEDS: Record<NewsCategory, FeedSource[]> = {
 		{ name: 'Reason', url: 'https://reason.com/feed/', priority: 3, bias: 'center-right' },
 
 		// Congressional Coverage
-		{ name: 'Congress.gov Bills', url: 'https://www.congress.gov/rss/most-viewed-bills.xml', priority: 1, bias: 'center' },
+		{ name: 'Congress.gov Activity', url: 'https://news.google.com/rss/search?q=site:congress.gov+bill&hl=en-US&gl=US&ceid=US:en', priority: 1, bias: 'center' },
 		{ name: 'GovTrack', url: 'https://www.govtrack.us/events/events.rss', priority: 2, bias: 'center' }
 	],
 
