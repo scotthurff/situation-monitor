@@ -19,9 +19,10 @@
 	interface Props {
 		loading?: boolean;
 		error?: string | null;
+		fillContainer?: boolean;
 	}
 
-	let { loading = false, error = null }: Props = $props();
+	let { loading = false, error = null, fillContainer = false }: Props = $props();
 
 	// Track dynamic markers for reactive updates
 	let dynamicMarkersGroup: ReturnType<typeof import('d3').select> | null = null;
@@ -503,6 +504,10 @@
 
 		svg = d3.select(svgEl);
 		svg.attr('viewBox', `0 0 ${WIDTH} ${HEIGHT}`);
+		// fillContainer mode: scale to fill container, cropping excess (for mobile portrait)
+		if (fillContainer) {
+			svg.attr('preserveAspectRatio', 'xMidYMid slice');
+		}
 
 		mapGroup = svg.append('g').attr('id', 'mapGroup');
 

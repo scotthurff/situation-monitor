@@ -17,7 +17,12 @@
 
 <MobileView noPadding>
 	<div class="map-wrapper">
-		<!-- Stats bar -->
+		<!-- Map (full screen) -->
+		<div class="map-container-wrapper">
+			<MapPanel fillContainer />
+		</div>
+
+		<!-- Stats bar (overlaid on map) -->
 		<div class="map-stats">
 			<button class="legend-toggle" onclick={toggleLegend} aria-expanded={showLegend}>
 				<span class="legend-icon">🗺️</span>
@@ -34,7 +39,7 @@
 			</div>
 		</div>
 
-		<!-- Collapsible legend -->
+		<!-- Collapsible legend (overlaid) -->
 		{#if showLegend}
 			<div class="map-legend">
 				<div class="legend-section">
@@ -96,30 +101,31 @@
 				</div>
 			</div>
 		{/if}
-
-		<!-- Map -->
-		<div class="map-container-wrapper">
-			<MapPanel />
-		</div>
 	</div>
 </MobileView>
 
 <style>
 	.map-wrapper {
 		height: 100%;
-		display: flex;
-		flex-direction: column;
+		position: relative;
 		background: var(--bg);
+		overflow: hidden;
 	}
 
 	.map-stats {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.5rem 0.75rem;
-		background: var(--surface);
+		background: rgba(20, 20, 20, 0.85);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 		border-bottom: 1px solid var(--border);
-		flex-shrink: 0;
+		z-index: 10;
 	}
 
 	.legend-toggle {
@@ -172,10 +178,18 @@
 	}
 
 	.map-legend {
+		position: absolute;
+		top: 44px; /* Below stats bar */
+		left: 0;
+		right: 0;
 		padding: 0.75rem;
-		background: var(--surface);
+		background: rgba(20, 20, 20, 0.9);
+		backdrop-filter: blur(4px);
+		-webkit-backdrop-filter: blur(4px);
 		border-bottom: 1px solid var(--border);
-		flex-shrink: 0;
+		z-index: 10;
+		max-height: 50vh;
+		overflow-y: auto;
 	}
 
 	.legend-section {
@@ -257,8 +271,11 @@
 	}
 
 	.map-container-wrapper {
-		flex: 1;
-		min-height: 0;
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
 		overflow: hidden;
 	}
 
@@ -277,16 +294,28 @@
 	.map-container-wrapper :global(.panel-content) {
 		flex: 1;
 		padding: 0;
+		height: 100%;
 	}
 
 	.map-container-wrapper :global(.map-container) {
 		aspect-ratio: unset;
 		height: 100%;
+		width: 100%;
 	}
 
-	/* Larger zoom controls for mobile */
+	.map-container-wrapper :global(.map-svg) {
+		width: 100%;
+		height: 100%;
+	}
+
+	/* Position weather widget higher on mobile to avoid nav bar */
+	.map-container-wrapper :global(.weather-widget) {
+		bottom: 4rem;
+	}
+
+	/* Larger zoom controls for mobile, positioned higher */
 	.map-container-wrapper :global(.zoom-controls) {
-		bottom: 1rem;
+		bottom: 4rem;
 		right: 1rem;
 	}
 
