@@ -91,68 +91,137 @@
 		}
 	}
 
-	// Radar layer state
+	// Weather layer state - satellite (global) + radar (where available)
+	let satellitePath = $state<string | null>(null);
 	let radarPath = $state<string | null>(null);
-	let radarEnabled = $state(true);
+	let weatherEnabled = $state(true);
 
-	// Radar tile configuration - using zoom level 2 for good coverage
-	const RADAR_ZOOM = 2;
-	const RADAR_TILE_SIZE = 256;
-	const RADAR_TILES_PER_ROW = Math.pow(2, RADAR_ZOOM); // 4 tiles per row at zoom 2
+	// Tile configuration - zoom level 2 for better coverage (16 tiles each layer)
+	const WEATHER_ZOOM = 2;
+	const WEATHER_TILE_SIZE = 256;
+	const WEATHER_TILES_PER_ROW = Math.pow(2, WEATHER_ZOOM); // 4 tiles per row at zoom 2
 
 	async function loadRadarData(): Promise<void> {
 		try {
 			const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
 			const data = await res.json();
-			// Get the most recent radar frame
-			const frames = data.radar?.past || [];
-			if (frames.length > 0) {
-				radarPath = frames[frames.length - 1].path;
+
+			// Get satellite data (global cloud/precipitation coverage)
+			const satFrames = data.satellite?.infrared || [];
+			if (satFrames.length > 0) {
+				satellitePath = satFrames[satFrames.length - 1].path;
 			}
+
+			// Get radar data (detailed precipitation where stations exist)
+			const radarFrames = data.radar?.past || [];
+			if (radarFrames.length > 0) {
+				radarPath = radarFrames[radarFrames.length - 1].path;
+			}
+
+			// Render both layers
+			renderWeatherTiles();
 		} catch (err) {
-			console.warn('Failed to load radar data:', err);
+			console.warn('Failed to load weather data:', err);
 		}
 	}
 
-	// Generate radar tile URLs for the visible area
+	// Generate tile URLs
+	function getSatelliteTileUrl(x: number, y: number): string {
+		if (!satellitePath) return '';
+		// Satellite infrared - color 0 (grayscale), smooth
+		return `https://tilecache.rainviewer.com${satellitePath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/0/0_0.png`;
+	}
+
 	function getRadarTileUrl(x: number, y: number): string {
 		if (!radarPath) return '';
-		// RainViewer tile URL format: {path}/{size}/{z}/{x}/{y}/{color}/{options}.png
-		// color 6 = universal blue, options 1_1 = smooth + snow
-		return `https://tilecache.rainviewer.com${radarPath}/${RADAR_TILE_SIZE}/${RADAR_ZOOM}/${x}/${y}/6/1_1.png`;
+		// Radar - color 2 (TITAN - blue/pink/yellow like Apple), smooth + snow
+		return `https://tilecache.rainviewer.com${radarPath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/2/1_1.png`;
 	}
 
-	// Calculate tile positions for the map using percentages
-	// Our map is 800x400, equirectangular projection
-	// Mercator tiles don't perfectly align, but we'll approximate
-	function getRadarTiles(): Array<{ x: number; y: number; url: string; leftPct: number; topPct: number; widthPct: number; heightPct: number }> {
-		if (!radarPath) return [];
+	// Convert tile coordinates to lat/lon bounds (Web Mercator)
+	function tile2lon(x: number, z: number): number {
+		return (x / Math.pow(2, z)) * 360 - 180;
+	}
 
-		const tiles: Array<{ x: number; y: number; url: string; leftPct: number; topPct: number; widthPct: number; heightPct: number }> = [];
+	function tile2lat(y: number, z: number): number {
+		const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
+		return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+	}
 
-		// At zoom 2, we have 4x4 = 16 tiles covering the world
-		// Use percentages for responsive positioning
-		const tilePct = 100 / RADAR_TILES_PER_ROW; // 25% per tile
+	// Render weather tiles inside SVG for proper zoom sync
+	function renderWeatherTiles(): void {
+		if (!mapGroup || !d3Module || !projection) return;
 
-		for (let y = 0; y < RADAR_TILES_PER_ROW; y++) {
-			for (let x = 0; x < RADAR_TILES_PER_ROW; x++) {
-				tiles.push({
-					x,
-					y,
-					url: getRadarTileUrl(x, y),
-					leftPct: x * tilePct,
-					topPct: y * tilePct,
-					widthPct: tilePct,
-					heightPct: tilePct
-				});
+		// Remove existing weather tiles
+		mapGroup.selectAll('.weather-group').remove();
+
+		// Create weather group as first child (behind everything else)
+		const weatherGroup = mapGroup.insert('g', ':first-child')
+			.attr('class', 'weather-group');
+
+		// Render a single tile with proper projection
+		function renderTile(
+			group: ReturnType<typeof d3Module.select>,
+			tx: number,
+			ty: number,
+			tileUrl: string
+		): void {
+			// Get tile bounds in lat/lon
+			const west = tile2lon(tx, WEATHER_ZOOM);
+			const east = tile2lon(tx + 1, WEATHER_ZOOM);
+			const north = tile2lat(ty, WEATHER_ZOOM);
+			const south = tile2lat(ty + 1, WEATHER_ZOOM);
+
+			// Project corners to SVG coordinates
+			const topLeft = projection([west, north]);
+			const bottomRight = projection([east, south]);
+
+			if (!topLeft || !bottomRight) return;
+
+			const x = topLeft[0];
+			const y = topLeft[1];
+			const width = bottomRight[0] - topLeft[0];
+			const height = bottomRight[1] - topLeft[1];
+
+			// Skip tiles that are outside our visible area
+			if (x + width < 0 || x > WIDTH || y + height < 0 || y > HEIGHT) return;
+
+			group.append('image')
+				.attr('href', tileUrl)
+				.attr('x', x)
+				.attr('y', y)
+				.attr('width', width)
+				.attr('height', height)
+				.attr('preserveAspectRatio', 'none');
+		}
+
+		// Layer 1: Satellite infrared (global cloud coverage) - base layer
+		if (satellitePath) {
+			const satGroup = weatherGroup.append('g')
+				.attr('class', 'satellite-layer')
+				.attr('opacity', 0.5);
+
+			for (let ty = 0; ty < WEATHER_TILES_PER_ROW; ty++) {
+				for (let tx = 0; tx < WEATHER_TILES_PER_ROW; tx++) {
+					renderTile(satGroup, tx, ty, getSatelliteTileUrl(tx, ty));
+				}
 			}
 		}
 
-		return tiles;
-	}
+		// Layer 2: Radar precipitation (detailed where available) - overlay
+		if (radarPath) {
+			const radarGroup = weatherGroup.append('g')
+				.attr('class', 'radar-layer')
+				.attr('opacity', 0.8)
+				.style('mix-blend-mode', 'screen');
 
-	// Refresh radar every 10 minutes
-	let radarInterval: ReturnType<typeof setInterval> | null = null;
+			for (let ty = 0; ty < WEATHER_TILES_PER_ROW; ty++) {
+				for (let tx = 0; tx < WEATHER_TILES_PER_ROW; tx++) {
+					renderTile(radarGroup, tx, ty, getRadarTileUrl(tx, ty));
+				}
+			}
+		}
+	}
 
 	// Track current zoom transform for radar layer synchronization
 	let currentTransform = $state({ x: 0, y: 0, k: 1 });
@@ -529,11 +598,12 @@
 
 		enableZoom();
 
+		// Web Mercator projection - aligns with standard radar/weather tiles
 		projection = d3
-			.geoEquirectangular()
-			.scale(130)
-			.center([0, 20])
-			.translate([WIDTH / 2, HEIGHT / 2 - 30]);
+			.geoMercator()
+			.scale(125)
+			.center([0, 15])
+			.translate([WIDTH / 2, HEIGHT / 2]);
 
 		path = d3.geoPath().projection(projection);
 
@@ -793,51 +863,17 @@
 		svg.transition().duration(300).call(zoom.transform, d3Module.zoomIdentity);
 	}
 
-	onMount(() => {
-		initMap();
+	onMount(async () => {
+		await initMap();
 		loadWeatherWidget();
 		loadRadarData();
-
-		// Refresh radar every 10 minutes
-		radarInterval = setInterval(loadRadarData, 10 * 60 * 1000);
-
-		return () => {
-			if (radarInterval) clearInterval(radarInterval);
-		};
 	});
 </script>
 
 <Panel id="map" title="Global Situation" {loading} {error}>
 	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
-		{#if radarEnabled && radarPath && containerWidth > 0}
-			{@const scaleToFitX = containerWidth / WIDTH}
-			{@const scaleToFitY = containerHeight / HEIGHT}
-			{@const effectiveScale = fillContainer ? Math.max(scaleToFitX, scaleToFitY) : scaleToFitX}
-			{@const renderedWidth = WIDTH * effectiveScale}
-			{@const renderedHeight = HEIGHT * effectiveScale}
-			{@const offsetX = (containerWidth - renderedWidth) / 2}
-			{@const offsetY = (containerHeight - renderedHeight) / 2}
-			{@const translateX = currentTransform.x * effectiveScale}
-			{@const translateY = currentTransform.y * effectiveScale}
-			<div class="radar-layer" style="
-				width: {renderedWidth}px;
-				height: {renderedHeight}px;
-				left: {offsetX}px;
-				top: {offsetY}px;
-				transform: translate({translateX}px, {translateY}px) scale({currentTransform.k});
-				transform-origin: 0 0;
-			">
-				{#each getRadarTiles() as tile (tile.url)}
-					<img
-						src={tile.url}
-						alt=""
-						class="radar-tile"
-						style="left: {tile.leftPct}%; top: {tile.topPct}%; width: {tile.widthPct}%; height: {tile.heightPct}%;"
-						loading="lazy"
-					/>
-				{/each}
-			</div>
-		{/if}
+		<!-- Cloud/satellite layer from RainViewer infrared satellite imagery -->
+		<!-- Radar tiles are now rendered inside the SVG mapGroup for proper zoom sync -->
 		<svg class="map-svg"></svg>
 		{#if tooltipVisible && tooltipContent}
 			<div
@@ -879,6 +915,7 @@
 		background: #0a0f0d;
 		border-radius: 4px;
 		overflow: hidden;
+		isolation: isolate; /* Create stacking context for proper z-index */
 	}
 
 	.map-svg {
@@ -888,18 +925,7 @@
 		z-index: 1;
 	}
 
-	.radar-layer {
-		position: absolute;
-		z-index: 2;
-		opacity: 0.6;
-		pointer-events: none;
-		mix-blend-mode: screen;
-	}
-
-	.radar-tile {
-		position: absolute;
-		object-fit: cover;
-	}
+	/* Radar tiles are rendered inside SVG - styling applied via D3 */
 
 	.map-tooltip {
 		position: absolute;
