@@ -91,131 +91,110 @@
 		}
 	}
 
-	// Weather layer state - satellite (global) + radar (where available)
-	let satellitePath = $state<string | null>(null);
-	let radarPath = $state<string | null>(null);
+	// Weather layer state - NASA GIBS WMS for seamless single-image weather
 	let weatherEnabled = $state(true);
+	let weatherImageUrl = $state<string | null>(null);
 
-	// Tile configuration - zoom level 2 for better resolution (4x4 = 16 tiles)
-	const WEATHER_ZOOM = 2;
-	const WEATHER_TILE_SIZE = 256;
-	const WEATHER_TILES_PER_ROW = Math.pow(2, WEATHER_ZOOM); // 4
+	// NASA GIBS WMS configuration
+	// Using VIIRS SNPP Corrected Reflectance for global cloud visibility
+	const GIBS_WMS_BASE = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
 
-	async function loadRadarData(): Promise<void> {
+	// Global coverage layers:
+	// - VIIRS_SNPP_CorrectedReflectance_TrueColor (global, daily)
+	// - MODIS_Terra_CorrectedReflectance_TrueColor (global, daily)
+	// Using VIIRS which has global coverage and shows clouds clearly
+	const GIBS_LAYER = 'VIIRS_SNPP_CorrectedReflectance_TrueColor';
+
+	/**
+	 * Build NASA GIBS WMS URL for the current map view
+	 * WMS returns a single seamless image - no tile stitching required
+	 */
+	function buildGibsWmsUrl(): string {
+		// Get today's date for GIBS time parameter (data is ~1 day delayed)
+		const yesterday = new Date();
+		yesterday.setDate(yesterday.getDate() - 1);
+		const timeParam = yesterday.toISOString().split('T')[0];
+
+		// Geographic bounds for the map (Plate Carrée/EPSG:4326)
+		// Our Mercator projection shows roughly -180 to 180 lon, -60 to 85 lat
+		const bbox = '-180,-60,180,85';
+
+		// Request size matching our SVG dimensions for crisp rendering
+		const wmsWidth = WIDTH * 2; // 2x for retina
+		const wmsHeight = HEIGHT * 2;
+
+		const params = new URLSearchParams({
+			SERVICE: 'WMS',
+			REQUEST: 'GetMap',
+			VERSION: '1.3.0',
+			LAYERS: GIBS_LAYER,
+			CRS: 'EPSG:4326',
+			BBOX: bbox,
+			WIDTH: wmsWidth.toString(),
+			HEIGHT: wmsHeight.toString(),
+			FORMAT: 'image/png',
+			TRANSPARENT: 'TRUE',
+			TIME: timeParam
+		});
+
+		return `${GIBS_WMS_BASE}?${params.toString()}`;
+	}
+
+	/**
+	 * Load weather layer from NASA GIBS WMS
+	 * Single image request = no seams, no stitching
+	 */
+	async function loadWeatherLayer(): Promise<void> {
 		try {
-			const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-			const data = await res.json();
-
-			// Get satellite data (global cloud/precipitation coverage)
-			const satFrames = data.satellite?.infrared || [];
-			if (satFrames.length > 0) {
-				satellitePath = satFrames[satFrames.length - 1].path;
-			}
-
-			// Get radar data (detailed precipitation where stations exist)
-			const radarFrames = data.radar?.past || [];
-			if (radarFrames.length > 0) {
-				radarPath = radarFrames[radarFrames.length - 1].path;
-			}
-
-			// Render both layers
-			renderWeatherTiles();
+			weatherImageUrl = buildGibsWmsUrl();
+			renderWeatherLayer();
 		} catch (err) {
-			console.warn('Failed to load weather data:', err);
+			console.warn('Failed to load weather layer:', err);
 		}
 	}
 
-	// Generate tile URLs
-	function getSatelliteTileUrl(x: number, y: number): string {
-		if (!satellitePath) return '';
-		// Satellite infrared - color 0 (grayscale), smooth
-		return `https://tilecache.rainviewer.com${satellitePath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/0/0_0.png`;
-	}
-
-	function getRadarTileUrl(x: number, y: number): string {
-		if (!radarPath) return '';
-		// Radar - color 2 (TITAN - blue/pink/yellow like Apple), smooth + snow
-		return `https://tilecache.rainviewer.com${radarPath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/2/1_1.png`;
-	}
-
-	// Web Mercator latitude limit (tiles only cover this range)
-	const WEB_MERCATOR_MAX_LAT = 85.051;
-
-	// Render weather using a single tile at zoom 0 (no stitching needed)
-	// This avoids all seam issues at the cost of lower resolution
-	function renderWeatherTiles(): void {
-		if (!mapGroup || !d3Module || !projection) return;
+	/**
+	 * Render NASA GIBS weather as a single seamless image
+	 * Positioned to match our Mercator projection bounds
+	 */
+	function renderWeatherLayer(): void {
+		if (!mapGroup || !d3Module || !projection || !weatherImageUrl) return;
 
 		const weatherLayer = mapGroup.select('#weatherLayer');
 		if (weatherLayer.empty()) return;
 
 		weatherLayer.selectAll('*').remove();
 
-		// Get the visible map bounds by inverting the SVG corners
-		const topLeftGeo = projection.invert?.([0, 0]);
-		const bottomRightGeo = projection.invert?.([WIDTH, HEIGHT]);
+		if (!weatherEnabled) return;
 
-		if (!topLeftGeo || !bottomRightGeo) return;
+		// Calculate SVG coordinates for the geographic bounds
+		// NASA GIBS image covers -180,-60 to 180,85 in EPSG:4326
+		const topLeft = projection([-180, 85]);
+		const bottomRight = projection([180, -60]);
 
-		// The visible longitude range
-		const visibleWest = topLeftGeo[0];
-		const visibleEast = bottomRightGeo[0];
-		const visibleNorth = topLeftGeo[1];
-		const visibleSouth = bottomRightGeo[1];
+		if (!topLeft || !bottomRight) return;
 
-		// Weather tile covers -180 to 180 longitude, -85.051 to 85.051 latitude
-		// Calculate what portion of the tile is visible and position accordingly
+		const x = topLeft[0];
+		const y = topLeft[1];
+		const width = bottomRight[0] - topLeft[0];
+		const height = bottomRight[1] - topLeft[1];
 
-		// For simplicity, position the weather to cover the full viewBox
-		// The Mercator projection handles the geographic alignment
-		const x = 0;
-		const y = 0;
-		const width = WIDTH;
-		const height = HEIGHT;
-
-		// Use zoom level 0 - single tile, no seams possible
-		const zoom0SatUrl = satellitePath
-			? `https://tilecache.rainviewer.com${satellitePath}/256/0/0/0/0/0_0.png`
-			: null;
-		const zoom0RadarUrl = radarPath
-			? `https://tilecache.rainviewer.com${radarPath}/256/0/0/0/2/1_1.png`
-			: null;
-
-		// Layer 1: Satellite with colorization
-		if (zoom0SatUrl) {
-			const satGroup = weatherLayer.append('g')
-				.attr('class', 'satellite-layer')
-				.attr('opacity', 0.6)
-				.attr('filter', 'url(#weather-colorize)');
-
-			satGroup.append('image')
-				.attr('href', zoom0SatUrl)
-				.attr('x', x)
-				.attr('y', y)
-				.attr('width', width)
-				.attr('height', height)
-				.attr('preserveAspectRatio', 'none');
-		}
-
-		// Layer 2: Radar precipitation (regional coverage only)
-		if (zoom0RadarUrl) {
-			const radarGroup = weatherLayer.append('g')
-				.attr('class', 'radar-layer')
-				.attr('opacity', 0.7)
-				.style('mix-blend-mode', 'screen');
-
-			radarGroup.append('image')
-				.attr('href', zoom0RadarUrl)
-				.attr('x', x)
-				.attr('y', y)
-				.attr('width', width)
-				.attr('height', height)
-				.attr('preserveAspectRatio', 'none');
-		}
+		// Add the single seamless weather image
+		// Lower opacity to keep map features visible while showing cloud patterns
+		weatherLayer
+			.append('image')
+			.attr('class', 'weather-layer')
+			.attr('href', weatherImageUrl)
+			.attr('x', x)
+			.attr('y', y)
+			.attr('width', width)
+			.attr('height', height)
+			.attr('preserveAspectRatio', 'none')
+			.attr('opacity', 0.35)
+			.style('mix-blend-mode', 'screen')
+			.style('pointer-events', 'none');
 	}
 
-	// Track current zoom transform for radar layer synchronization
-	let currentTransform = $state({ x: 0, y: 0, k: 1 });
 
 	// Weather cache
 	interface CacheEntry<T> {
@@ -583,8 +562,6 @@
 			})
 			.on('zoom', (event) => {
 				mapGroup.attr('transform', event.transform.toString());
-				// Update transform state for radar layer synchronization
-				currentTransform = { x: event.transform.x, y: event.transform.y, k: event.transform.k };
 			});
 
 		enableZoom();
@@ -860,29 +837,14 @@
 	onMount(async () => {
 		await initMap();
 		loadWeatherWidget();
-		loadRadarData();
+		loadWeatherLayer();
 	});
 </script>
 
 <Panel id="map" title="Global Situation" {loading} {error}>
 	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
-		<!-- Cloud/satellite layer from RainViewer infrared satellite imagery -->
-		<!-- Radar tiles are now rendered inside the SVG mapGroup for proper zoom sync -->
+		<!-- Weather layer from NASA GIBS WMS - single seamless image -->
 		<svg class="map-svg">
-			<!-- SVG filter to colorize grayscale satellite imagery into weather intensity colors -->
-			<defs>
-				<filter id="weather-colorize" color-interpolation-filters="sRGB">
-					<!-- Convert to grayscale first to normalize -->
-					<feColorMatrix type="saturate" values="0" result="gray"/>
-					<!-- Map grayscale to color gradient using component transfer -->
-					<!-- Dark (clear) → Blue → Cyan → Green → Yellow → Orange → Red → Magenta (intense) -->
-					<feComponentTransfer in="gray" result="colored">
-						<feFuncR type="table" tableValues="0.1 0.1 0.0 0.2 0.9 1.0 1.0 0.9"/>
-						<feFuncG type="table" tableValues="0.2 0.4 0.7 0.9 0.9 0.5 0.2 0.2"/>
-						<feFuncB type="table" tableValues="0.4 0.8 0.8 0.3 0.1 0.1 0.3 0.8"/>
-					</feComponentTransfer>
-				</filter>
-			</defs>
 		</svg>
 		{#if tooltipVisible && tooltipContent}
 			<div
