@@ -198,7 +198,7 @@
 			.attr('width', width)
 			.attr('height', height)
 			.attr('preserveAspectRatio', 'none')
-			.attr('opacity', 0.4)
+			.attr('opacity', 0.25)
 			.style('pointer-events', 'none');
 
 		// Log when image loads or fails
