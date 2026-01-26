@@ -96,10 +96,10 @@
 	let radarPath = $state<string | null>(null);
 	let weatherEnabled = $state(true);
 
-	// Tile configuration - zoom level 2 for better coverage (16 tiles each layer)
-	const WEATHER_ZOOM = 2;
+	// Tile configuration - zoom level 0 (single tile, no seams)
+	const WEATHER_ZOOM = 0;
 	const WEATHER_TILE_SIZE = 256;
-	const WEATHER_TILES_PER_ROW = Math.pow(2, WEATHER_ZOOM); // 4 tiles per row at zoom 2
+	const WEATHER_TILES_PER_ROW = 1;
 
 	async function loadRadarData(): Promise<void> {
 		try {
@@ -138,14 +138,19 @@
 		return `https://tilecache.rainviewer.com${radarPath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/2/1_1.png`;
 	}
 
-	// Convert tile coordinates to lat/lon bounds (Web Mercator)
-	function tile2lon(x: number, z: number): number {
-		return (x / Math.pow(2, z)) * 360 - 180;
+	// Web Mercator tile math - convert lat/lon to pixel coords
+	// Using exact formulas from OpenStreetMap/Web Mercator spec
+	function lon2x(lon: number, zoom: number): number {
+		return ((lon + 180) / 360) * Math.pow(2, zoom) * WEATHER_TILE_SIZE;
 	}
 
-	function tile2lat(y: number, z: number): number {
-		const n = Math.PI - (2 * Math.PI * y) / Math.pow(2, z);
-		return (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+	function lat2y(lat: number, zoom: number): number {
+		const latRad = (lat * Math.PI) / 180;
+		return (
+			((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
+			Math.pow(2, zoom) *
+			WEATHER_TILE_SIZE
+		);
 	}
 
 	// Render weather tiles inside SVG for proper zoom sync
@@ -162,29 +167,41 @@
 		// Use the placeholder as our weather group
 		const weatherGroup = weatherLayer;
 
-		// Render a single tile with proper projection
+		// Get our map's visible bounds in lat/lon
+		// Using projection.invert to find what coordinates are at map corners
+		const topLeftCoord = projection.invert?.([0, 0]);
+		const bottomRightCoord = projection.invert?.([WIDTH, HEIGHT]);
+
+		if (!topLeftCoord || !bottomRightCoord) return;
+
+		// Calculate Web Mercator pixel positions for our map bounds
+		const mapLeftX = lon2x(topLeftCoord[0], WEATHER_ZOOM);
+		const mapRightX = lon2x(bottomRightCoord[0], WEATHER_ZOOM);
+		const mapTopY = lat2y(topLeftCoord[1], WEATHER_ZOOM);
+		const mapBottomY = lat2y(bottomRightCoord[1], WEATHER_ZOOM);
+
+		// Scale factor: how many SVG pixels per Web Mercator pixel
+		const scaleX = WIDTH / (mapRightX - mapLeftX);
+		const scaleY = HEIGHT / (mapBottomY - mapTopY);
+
+		// Render a single tile
 		function renderTile(
 			group: ReturnType<typeof d3Module.select>,
 			tx: number,
 			ty: number,
 			tileUrl: string
 		): void {
-			// Get tile bounds in lat/lon
-			const west = tile2lon(tx, WEATHER_ZOOM);
-			const east = tile2lon(tx + 1, WEATHER_ZOOM);
-			const north = tile2lat(ty, WEATHER_ZOOM);
-			const south = tile2lat(ty + 1, WEATHER_ZOOM);
+			// Tile bounds in Web Mercator pixels
+			const tileLeftX = tx * WEATHER_TILE_SIZE;
+			const tileRightX = (tx + 1) * WEATHER_TILE_SIZE;
+			const tileTopY = ty * WEATHER_TILE_SIZE;
+			const tileBottomY = (ty + 1) * WEATHER_TILE_SIZE;
 
-			// Project corners to SVG coordinates
-			const topLeft = projection([west, north]);
-			const bottomRight = projection([east, south]);
-
-			if (!topLeft || !bottomRight) return;
-
-			const x = topLeft[0];
-			const y = topLeft[1];
-			const width = bottomRight[0] - topLeft[0];
-			const height = bottomRight[1] - topLeft[1];
+			// Convert to SVG coordinates
+			const x = (tileLeftX - mapLeftX) * scaleX;
+			const y = (tileTopY - mapTopY) * scaleY;
+			const width = (tileRightX - tileLeftX) * scaleX;
+			const height = (tileBottomY - tileTopY) * scaleY;
 
 			// Skip tiles that are outside our visible area
 			if (x + width < 0 || x > WIDTH || y + height < 0 || y > HEIGHT) return;
@@ -213,7 +230,7 @@
 			}
 		}
 
-		// Layer 2: Radar precipitation (detailed where available) - overlay
+		// Layer 2: Radar precipitation (detailed where stations exist)
 		if (radarPath) {
 			const radarGroup = weatherGroup.append('g')
 				.attr('class', 'radar-layer')
@@ -890,7 +907,7 @@
 					<feColorMatrix type="saturate" values="0" result="gray"/>
 					<!-- Map grayscale to color gradient using component transfer -->
 					<!-- Dark (clear) → Blue → Cyan → Green → Yellow → Orange → Red → Magenta (intense) -->
-					<feComponentTransfer result="colored">
+					<feComponentTransfer in="gray" result="colored">
 						<feFuncR type="table" tableValues="0.1 0.1 0.0 0.2 0.9 1.0 1.0 0.9"/>
 						<feFuncG type="table" tableValues="0.2 0.4 0.7 0.9 0.9 0.5 0.2 0.2"/>
 						<feFuncB type="table" tableValues="0.4 0.8 0.8 0.3 0.1 0.1 0.3 0.8"/>
