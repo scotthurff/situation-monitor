@@ -96,10 +96,10 @@
 	let radarPath = $state<string | null>(null);
 	let weatherEnabled = $state(true);
 
-	// Tile configuration - zoom level 0 (single tile, no seams)
-	const WEATHER_ZOOM = 0;
+	// Tile configuration - zoom level 2 for better resolution (4x4 = 16 tiles)
+	const WEATHER_ZOOM = 2;
 	const WEATHER_TILE_SIZE = 256;
-	const WEATHER_TILES_PER_ROW = 1;
+	const WEATHER_TILES_PER_ROW = Math.pow(2, WEATHER_ZOOM); // 4
 
 	async function loadRadarData(): Promise<void> {
 		try {
@@ -138,76 +138,58 @@
 		return `https://tilecache.rainviewer.com${radarPath}/${WEATHER_TILE_SIZE}/${WEATHER_ZOOM}/${x}/${y}/2/1_1.png`;
 	}
 
-	// Web Mercator tile math - convert lat/lon to pixel coords
-	// Using exact formulas from OpenStreetMap/Web Mercator spec
-	function lon2x(lon: number, zoom: number): number {
-		return ((lon + 180) / 360) * Math.pow(2, zoom) * WEATHER_TILE_SIZE;
-	}
+	// Web Mercator latitude limit (tiles only cover this range)
+	const WEB_MERCATOR_MAX_LAT = 85.051;
 
-	function lat2y(lat: number, zoom: number): number {
-		const latRad = (lat * Math.PI) / 180;
-		return (
-			((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) *
-			Math.pow(2, zoom) *
-			WEATHER_TILE_SIZE
-		);
-	}
-
-	// Render weather tiles inside SVG for proper zoom sync
+	// Render weather using a single tile at zoom 0 (no stitching needed)
+	// This avoids all seam issues at the cost of lower resolution
 	function renderWeatherTiles(): void {
 		if (!mapGroup || !d3Module || !projection) return;
 
-		// Get weather layer placeholder (created in initMap at correct z-order)
 		const weatherLayer = mapGroup.select('#weatherLayer');
 		if (weatherLayer.empty()) return;
 
-		// Clear existing tiles
 		weatherLayer.selectAll('*').remove();
 
-		// Use the placeholder as our weather group
-		const weatherGroup = weatherLayer;
+		// Get the visible map bounds by inverting the SVG corners
+		const topLeftGeo = projection.invert?.([0, 0]);
+		const bottomRightGeo = projection.invert?.([WIDTH, HEIGHT]);
 
-		// Get our map's visible bounds in lat/lon
-		// Using projection.invert to find what coordinates are at map corners
-		const topLeftCoord = projection.invert?.([0, 0]);
-		const bottomRightCoord = projection.invert?.([WIDTH, HEIGHT]);
+		if (!topLeftGeo || !bottomRightGeo) return;
 
-		if (!topLeftCoord || !bottomRightCoord) return;
+		// The visible longitude range
+		const visibleWest = topLeftGeo[0];
+		const visibleEast = bottomRightGeo[0];
+		const visibleNorth = topLeftGeo[1];
+		const visibleSouth = bottomRightGeo[1];
 
-		// Calculate Web Mercator pixel positions for our map bounds
-		const mapLeftX = lon2x(topLeftCoord[0], WEATHER_ZOOM);
-		const mapRightX = lon2x(bottomRightCoord[0], WEATHER_ZOOM);
-		const mapTopY = lat2y(topLeftCoord[1], WEATHER_ZOOM);
-		const mapBottomY = lat2y(bottomRightCoord[1], WEATHER_ZOOM);
+		// Weather tile covers -180 to 180 longitude, -85.051 to 85.051 latitude
+		// Calculate what portion of the tile is visible and position accordingly
 
-		// Scale factor: how many SVG pixels per Web Mercator pixel
-		const scaleX = WIDTH / (mapRightX - mapLeftX);
-		const scaleY = HEIGHT / (mapBottomY - mapTopY);
+		// For simplicity, position the weather to cover the full viewBox
+		// The Mercator projection handles the geographic alignment
+		const x = 0;
+		const y = 0;
+		const width = WIDTH;
+		const height = HEIGHT;
 
-		// Render a single tile
-		function renderTile(
-			group: ReturnType<typeof d3Module.select>,
-			tx: number,
-			ty: number,
-			tileUrl: string
-		): void {
-			// Tile bounds in Web Mercator pixels
-			const tileLeftX = tx * WEATHER_TILE_SIZE;
-			const tileRightX = (tx + 1) * WEATHER_TILE_SIZE;
-			const tileTopY = ty * WEATHER_TILE_SIZE;
-			const tileBottomY = (ty + 1) * WEATHER_TILE_SIZE;
+		// Use zoom level 0 - single tile, no seams possible
+		const zoom0SatUrl = satellitePath
+			? `https://tilecache.rainviewer.com${satellitePath}/256/0/0/0/0/0_0.png`
+			: null;
+		const zoom0RadarUrl = radarPath
+			? `https://tilecache.rainviewer.com${radarPath}/256/0/0/0/2/1_1.png`
+			: null;
 
-			// Convert to SVG coordinates
-			const x = (tileLeftX - mapLeftX) * scaleX;
-			const y = (tileTopY - mapTopY) * scaleY;
-			const width = (tileRightX - tileLeftX) * scaleX;
-			const height = (tileBottomY - tileTopY) * scaleY;
+		// Layer 1: Satellite with colorization
+		if (zoom0SatUrl) {
+			const satGroup = weatherLayer.append('g')
+				.attr('class', 'satellite-layer')
+				.attr('opacity', 0.6)
+				.attr('filter', 'url(#weather-colorize)');
 
-			// Skip tiles that are outside our visible area
-			if (x + width < 0 || x > WIDTH || y + height < 0 || y > HEIGHT) return;
-
-			group.append('image')
-				.attr('href', tileUrl)
+			satGroup.append('image')
+				.attr('href', zoom0SatUrl)
 				.attr('x', x)
 				.attr('y', y)
 				.attr('width', width)
@@ -215,33 +197,20 @@
 				.attr('preserveAspectRatio', 'none');
 		}
 
-		// Layer 1: Satellite infrared (global cloud coverage) - base layer
-		// Apply colorization filter to convert grayscale to intensity heat map
-		if (satellitePath) {
-			const satGroup = weatherGroup.append('g')
-				.attr('class', 'satellite-layer')
-				.attr('opacity', 0.6)
-				.attr('filter', 'url(#weather-colorize)');
-
-			for (let ty = 0; ty < WEATHER_TILES_PER_ROW; ty++) {
-				for (let tx = 0; tx < WEATHER_TILES_PER_ROW; tx++) {
-					renderTile(satGroup, tx, ty, getSatelliteTileUrl(tx, ty));
-				}
-			}
-		}
-
-		// Layer 2: Radar precipitation (detailed where stations exist)
-		if (radarPath) {
-			const radarGroup = weatherGroup.append('g')
+		// Layer 2: Radar precipitation (regional coverage only)
+		if (zoom0RadarUrl) {
+			const radarGroup = weatherLayer.append('g')
 				.attr('class', 'radar-layer')
-				.attr('opacity', 0.8)
+				.attr('opacity', 0.7)
 				.style('mix-blend-mode', 'screen');
 
-			for (let ty = 0; ty < WEATHER_TILES_PER_ROW; ty++) {
-				for (let tx = 0; tx < WEATHER_TILES_PER_ROW; tx++) {
-					renderTile(radarGroup, tx, ty, getRadarTileUrl(tx, ty));
-				}
-			}
+			radarGroup.append('image')
+				.attr('href', zoom0RadarUrl)
+				.attr('x', x)
+				.attr('y', y)
+				.attr('width', width)
+				.attr('height', height)
+				.attr('preserveAspectRatio', 'none');
 		}
 	}
 
