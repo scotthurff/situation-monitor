@@ -109,15 +109,15 @@
 	 * Build NASA GIBS WMS URL for the current map view
 	 * WMS returns a single seamless image - no tile stitching required
 	 */
-	function buildGibsWmsUrl(): string {
+	function buildGibsWmsUrl(south: number, west: number, north: number, east: number): string {
 		// Get today's date for GIBS time parameter (data is ~1 day delayed)
 		const yesterday = new Date();
 		yesterday.setDate(yesterday.getDate() - 1);
 		const timeParam = yesterday.toISOString().split('T')[0];
 
-		// Geographic bounds for the map (Plate Carrée/EPSG:4326)
-		// Our Mercator projection shows roughly -180 to 180 lon, -60 to 85 lat
-		const bbox = '-180,-60,180,85';
+		// WMS 1.3.0 with EPSG:4326 uses axis order: lat,lon (not lon,lat!)
+		// Format: minLat,minLon,maxLat,maxLon
+		const bbox = `${south},${west},${north},${east}`;
 
 		// Request size matching our SVG dimensions for crisp rendering
 		const wmsWidth = WIDTH * 2; // 2x for retina
@@ -145,8 +145,25 @@
 	 * Single image request = no seams, no stitching
 	 */
 	async function loadWeatherLayer(): Promise<void> {
+		if (!projection) return;
+
 		try {
-			weatherImageUrl = buildGibsWmsUrl();
+			// Calculate the geographic bounds of the visible map area
+			const topLeftGeo = projection.invert?.([0, 0]);
+			const bottomRightGeo = projection.invert?.([WIDTH, HEIGHT]);
+
+			if (!topLeftGeo || !bottomRightGeo) return;
+
+			// Extract bounds (note: north is from top, south from bottom)
+			let north = Math.min(topLeftGeo[1], 85); // VIIRS max latitude
+			let south = Math.max(bottomRightGeo[1], -85);
+			const west = -180;
+			const east = 180;
+
+			console.log('[Weather] Calculated bounds:', { north, south, west, east });
+			console.log('[Weather] URL:', buildGibsWmsUrl(south, west, north, east));
+
+			weatherImageUrl = buildGibsWmsUrl(south, west, north, east);
 			renderWeatherLayer();
 		} catch (err) {
 			console.warn('Failed to load weather layer:', err);
@@ -167,21 +184,15 @@
 
 		if (!weatherEnabled) return;
 
-		// Calculate SVG coordinates for the geographic bounds
-		// NASA GIBS image covers -180,-60 to 180,85 in EPSG:4326
-		const topLeft = projection([-180, 85]);
-		const bottomRight = projection([180, -60]);
-
-		if (!topLeft || !bottomRight) return;
-
-		const x = topLeft[0];
-		const y = topLeft[1];
-		const width = bottomRight[0] - topLeft[0];
-		const height = bottomRight[1] - topLeft[1];
+		// Cover the full SVG viewBox - the WMS image bounds match the map projection bounds
+		const x = 0;
+		const y = 0;
+		const width = WIDTH;
+		const height = HEIGHT;
 
 		// Add the single seamless weather image
 		// Lower opacity to keep map features visible while showing cloud patterns
-		weatherLayer
+		const img = weatherLayer
 			.append('image')
 			.attr('class', 'weather-layer')
 			.attr('href', weatherImageUrl)
@@ -190,9 +201,12 @@
 			.attr('width', width)
 			.attr('height', height)
 			.attr('preserveAspectRatio', 'none')
-			.attr('opacity', 0.35)
-			.style('mix-blend-mode', 'screen')
+			.attr('opacity', 0.4)
 			.style('pointer-events', 'none');
+
+		// Log when image loads or fails
+		img.on('load', () => console.log('[Weather] Image loaded successfully'));
+		img.on('error', (e) => console.error('[Weather] Image failed to load:', e));
 	}
 
 
