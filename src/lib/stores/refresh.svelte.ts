@@ -149,11 +149,31 @@ function startAutoRefresh(): void {
 
 	const interval = settingsStore.refreshInterval;
 	refreshInterval = setInterval(() => {
+		// Skip refresh if tab is hidden to save resources
+		if (document.hidden) return;
 		refresh();
 	}, interval);
 
+	// Listen for visibility changes to pause/resume intelligently
+	document.addEventListener('visibilitychange', handleVisibilityChange);
+
 	// Run initial refresh
 	refresh();
+}
+
+/**
+ * Handle tab visibility changes - refresh when tab becomes visible again
+ * if significant time has passed
+ */
+function handleVisibilityChange(): void {
+	if (!document.hidden && lastRefresh) {
+		const timeSinceRefresh = Date.now() - lastRefresh.getTime();
+		const interval = settingsStore.refreshInterval;
+		// If tab was hidden longer than the refresh interval, refresh now
+		if (timeSinceRefresh > interval) {
+			refresh();
+		}
+	}
 }
 
 /**
@@ -163,6 +183,10 @@ function stopAutoRefresh(): void {
 	if (refreshInterval) {
 		clearInterval(refreshInterval);
 		refreshInterval = null;
+	}
+	// Clean up visibility listener
+	if (browser) {
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
 	}
 }
 
