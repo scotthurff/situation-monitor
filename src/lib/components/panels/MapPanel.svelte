@@ -160,9 +160,6 @@
 			const west = -180;
 			const east = 180;
 
-			console.log('[Weather] Calculated bounds:', { north, south, west, east });
-			console.log('[Weather] URL:', buildGibsWmsUrl(south, west, north, east));
-
 			weatherImageUrl = buildGibsWmsUrl(south, west, north, east);
 			renderWeatherLayer();
 		} catch (err) {
