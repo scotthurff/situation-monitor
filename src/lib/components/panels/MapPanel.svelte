@@ -152,12 +152,15 @@
 	function renderWeatherTiles(): void {
 		if (!mapGroup || !d3Module || !projection) return;
 
-		// Remove existing weather tiles
-		mapGroup.selectAll('.weather-group').remove();
+		// Get weather layer placeholder (created in initMap at correct z-order)
+		const weatherLayer = mapGroup.select('#weatherLayer');
+		if (weatherLayer.empty()) return;
 
-		// Create weather group as first child (behind everything else)
-		const weatherGroup = mapGroup.insert('g', ':first-child')
-			.attr('class', 'weather-group');
+		// Clear existing tiles
+		weatherLayer.selectAll('*').remove();
+
+		// Use the placeholder as our weather group
+		const weatherGroup = weatherLayer;
 
 		// Render a single tile with proper projection
 		function renderTile(
@@ -196,10 +199,12 @@
 		}
 
 		// Layer 1: Satellite infrared (global cloud coverage) - base layer
+		// Apply colorization filter to convert grayscale to intensity heat map
 		if (satellitePath) {
 			const satGroup = weatherGroup.append('g')
 				.attr('class', 'satellite-layer')
-				.attr('opacity', 0.5);
+				.attr('opacity', 0.6)
+				.attr('filter', 'url(#weather-colorize)');
 
 			for (let ty = 0; ty < WEATHER_TILES_PER_ROW; ty++) {
 				for (let tx = 0; tx < WEATHER_TILES_PER_ROW; tx++) {
@@ -671,6 +676,9 @@
 				.attr('fill', 'rgba(0,0,0,0.3)')
 				.attr('stroke', 'none');
 
+			// Weather layer placeholder - inserted here to be above countries but below markers
+			mapGroup.append('g').attr('id', 'weatherLayer');
+
 			// Conflict zones available in CONFLICT_ZONES config but not rendered
 			// To re-enable: iterate CONFLICT_ZONES and draw polygons with fill-opacity 0.15
 
@@ -874,7 +882,22 @@
 	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
 		<!-- Cloud/satellite layer from RainViewer infrared satellite imagery -->
 		<!-- Radar tiles are now rendered inside the SVG mapGroup for proper zoom sync -->
-		<svg class="map-svg"></svg>
+		<svg class="map-svg">
+			<!-- SVG filter to colorize grayscale satellite imagery into weather intensity colors -->
+			<defs>
+				<filter id="weather-colorize" color-interpolation-filters="sRGB">
+					<!-- Convert to grayscale first to normalize -->
+					<feColorMatrix type="saturate" values="0" result="gray"/>
+					<!-- Map grayscale to color gradient using component transfer -->
+					<!-- Dark (clear) → Blue → Cyan → Green → Yellow → Orange → Red → Magenta (intense) -->
+					<feComponentTransfer result="colored">
+						<feFuncR type="table" tableValues="0.1 0.1 0.0 0.2 0.9 1.0 1.0 0.9"/>
+						<feFuncG type="table" tableValues="0.2 0.4 0.7 0.9 0.9 0.5 0.2 0.2"/>
+						<feFuncB type="table" tableValues="0.4 0.8 0.8 0.3 0.1 0.1 0.3 0.8"/>
+					</feComponentTransfer>
+				</filter>
+			</defs>
+		</svg>
 		{#if tooltipVisible && tooltipContent}
 			<div
 				class="map-tooltip"
