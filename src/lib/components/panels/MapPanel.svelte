@@ -91,76 +91,46 @@
 		}
 	}
 
-	// Weather layer state - NASA GIBS WMS for seamless single-image weather
+	// Weather layer state - OpenWeatherMap precipitation tiles (~10 min latency)
 	let weatherEnabled = $state(true);
-	let weatherImageUrl = $state<string | null>(null);
 
-	// NASA GIBS WMS configuration
-	// Using VIIRS SNPP Corrected Reflectance for global cloud visibility
-	const GIBS_WMS_BASE = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+	// OpenWeatherMap API configuration
+	// Free tier: 1000 calls/day, precipitation_new layer for rain/snow
+	const OWM_API_KEY = '904906d57d5601b8f4e291a3580d5494';
+	const OWM_TILE_BASE = 'https://tile.openweathermap.org/map/precipitation_new';
 
-	// Global coverage layers:
-	// - VIIRS_SNPP_CorrectedReflectance_TrueColor (global, daily)
-	// - MODIS_Terra_CorrectedReflectance_TrueColor (global, daily)
-	// Using VIIRS which has global coverage and shows clouds clearly
-	const GIBS_LAYER = 'VIIRS_SNPP_CorrectedReflectance_TrueColor';
+	// Tile math helpers for Web Mercator
+	function lonLatToTile(lon: number, lat: number, zoom: number): { x: number; y: number } {
+		const n = Math.pow(2, zoom);
+		const x = Math.floor(((lon + 180) / 360) * n);
+		const latRad = (lat * Math.PI) / 180;
+		const y = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n);
+		return { x: Math.max(0, Math.min(n - 1, x)), y: Math.max(0, Math.min(n - 1, y)) };
+	}
 
-	/**
-	 * Build NASA GIBS WMS URL for the current map view
-	 * WMS returns a single seamless image - no tile stitching required
-	 */
-	function buildGibsWmsUrl(south: number, west: number, north: number, east: number): string {
-		// Get today's date for GIBS time parameter (data is ~1 day delayed)
-		const yesterday = new Date();
-		yesterday.setDate(yesterday.getDate() - 1);
-		const timeParam = yesterday.toISOString().split('T')[0];
-
-		// WMS 1.3.0 with EPSG:4326 uses axis order: lat,lon (not lon,lat!)
-		// Format: minLat,minLon,maxLat,maxLon
-		const bbox = `${south},${west},${north},${east}`;
-
-		// Request size matching our SVG dimensions for crisp rendering
-		const wmsWidth = WIDTH * 2; // 2x for retina
-		const wmsHeight = HEIGHT * 2;
-
-		const params = new URLSearchParams({
-			SERVICE: 'WMS',
-			REQUEST: 'GetMap',
-			VERSION: '1.3.0',
-			LAYERS: GIBS_LAYER,
-			CRS: 'EPSG:4326',
-			BBOX: bbox,
-			WIDTH: wmsWidth.toString(),
-			HEIGHT: wmsHeight.toString(),
-			FORMAT: 'image/png',
-			TRANSPARENT: 'TRUE',
-			TIME: timeParam
-		});
-
-		return `${GIBS_WMS_BASE}?${params.toString()}`;
+	function tileToLonLat(x: number, y: number, zoom: number): { lon: number; lat: number } {
+		const n = Math.pow(2, zoom);
+		const lon = (x / n) * 360 - 180;
+		const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
+		const lat = (latRad * 180) / Math.PI;
+		return { lon, lat };
 	}
 
 	/**
-	 * Load weather layer from NASA GIBS WMS
-	 * Single image request = no seams, no stitching
+	 * Build OWM precipitation tile URL
+	 */
+	function buildOwmTileUrl(z: number, x: number, y: number): string {
+		return `${OWM_TILE_BASE}/${z}/${x}/${y}.png?appid=${OWM_API_KEY}`;
+	}
+
+	/**
+	 * Load weather layer from OpenWeatherMap tiles
+	 * Uses standard Web Mercator tiles with ~10 minute update frequency
 	 */
 	async function loadWeatherLayer(): Promise<void> {
 		if (!projection) return;
 
 		try {
-			// Calculate the geographic bounds of the visible map area
-			const topLeftGeo = projection.invert?.([0, 0]);
-			const bottomRightGeo = projection.invert?.([WIDTH, HEIGHT]);
-
-			if (!topLeftGeo || !bottomRightGeo) return;
-
-			// Extract bounds (note: north is from top, south from bottom)
-			let north = Math.min(topLeftGeo[1], 85); // VIIRS max latitude
-			let south = Math.max(bottomRightGeo[1], -85);
-			const west = -180;
-			const east = 180;
-
-			weatherImageUrl = buildGibsWmsUrl(south, west, north, east);
 			renderWeatherLayer();
 		} catch (err) {
 			console.warn('Failed to load weather layer:', err);
@@ -168,11 +138,11 @@
 	}
 
 	/**
-	 * Render NASA GIBS weather as a single seamless image
-	 * Positioned to match our Mercator projection bounds
+	 * Render OpenWeatherMap precipitation tiles
+	 * Calculates visible tiles and positions them to match D3 Mercator projection
 	 */
 	function renderWeatherLayer(): void {
-		if (!mapGroup || !d3Module || !projection || !weatherImageUrl) return;
+		if (!mapGroup || !d3Module || !projection) return;
 
 		const weatherLayer = mapGroup.select('#weatherLayer');
 		if (weatherLayer.empty()) return;
@@ -181,29 +151,50 @@
 
 		if (!weatherEnabled) return;
 
-		// Cover the full SVG viewBox - the WMS image bounds match the map projection bounds
-		const x = 0;
-		const y = 0;
-		const width = WIDTH;
-		const height = HEIGHT;
+		// Use zoom level 2 for global view (4x4 = 16 tiles covers world)
+		// This matches the map's default scale and provides good coverage
+		const zoom = 2;
+		const numTiles = Math.pow(2, zoom);
 
-		// Add the single seamless weather image
-		// Lower opacity to keep map features visible while showing cloud patterns
-		const img = weatherLayer
-			.append('image')
-			.attr('class', 'weather-layer')
-			.attr('href', weatherImageUrl)
-			.attr('x', x)
-			.attr('y', y)
-			.attr('width', width)
-			.attr('height', height)
-			.attr('preserveAspectRatio', 'none')
-			.attr('opacity', 0.25)
-			.style('pointer-events', 'none');
+		// Render all tiles at this zoom level
+		for (let tileY = 0; tileY < numTiles; tileY++) {
+			for (let tileX = 0; tileX < numTiles; tileX++) {
+				// Get geographic bounds of this tile
+				const nw = tileToLonLat(tileX, tileY, zoom);
+				const se = tileToLonLat(tileX + 1, tileY + 1, zoom);
 
-		// Log when image loads or fails
-		img.on('load', () => console.log('[Weather] Image loaded successfully'));
-		img.on('error', (e) => console.error('[Weather] Image failed to load:', e));
+				// Convert to screen coordinates using D3 projection
+				const topLeft = projection([nw.lon, nw.lat]);
+				const bottomRight = projection([se.lon, se.lat]);
+
+				if (!topLeft || !bottomRight) continue;
+
+				const x = topLeft[0];
+				const y = topLeft[1];
+				const width = bottomRight[0] - topLeft[0];
+				const height = bottomRight[1] - topLeft[1];
+
+				// Skip tiles outside visible area
+				if (x + width < 0 || x > WIDTH || y + height < 0 || y > HEIGHT) continue;
+
+				const tileUrl = buildOwmTileUrl(zoom, tileX, tileY);
+
+				weatherLayer
+					.append('image')
+					.attr('class', 'weather-tile')
+					.attr('href', tileUrl)
+					.attr('x', x)
+					.attr('y', y)
+					.attr('width', width)
+					.attr('height', height)
+					.attr('preserveAspectRatio', 'none')
+					.attr('opacity', 1.0)
+					.style('pointer-events', 'none')
+					.style('mix-blend-mode', 'screen');
+			}
+		}
+
+		console.log(`[Weather] Loaded ${numTiles * numTiles} OWM precipitation tiles at zoom ${zoom}`);
 	}
 
 
@@ -854,7 +845,7 @@
 
 <Panel id="map" title="Global Situation" {loading} {error}>
 	<div class="map-container" bind:this={mapContainer} bind:clientWidth={containerWidth} bind:clientHeight={containerHeight}>
-		<!-- Weather layer from NASA GIBS WMS - single seamless image -->
+		<!-- Weather layer from OpenWeatherMap precipitation tiles (~10 min updates) -->
 		<svg class="map-svg">
 		</svg>
 		{#if tooltipVisible && tooltipContent}

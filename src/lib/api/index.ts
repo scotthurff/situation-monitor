@@ -53,3 +53,17 @@ export { fetchPolymarket } from './polymarket';
 export { fetchLayoffs, getMockLayoffs } from './layoffs';
 
 export { extractEntities, fetchMainCharacters, getMockCharacters } from './entities';
+
+export {
+	fetchWeatherMaps,
+	getLatestSatelliteFrame,
+	getLatestRadarFrame,
+	buildSatelliteTileUrl,
+	buildRadarTileUrl,
+	lonLatToTile,
+	tileToLonLat,
+	getTileBounds,
+	getTilesForBounds,
+	formatWeatherTime
+} from './weather';
+export type { RadarFrame, WeatherMapsResponse, TileInfo } from './weather';
