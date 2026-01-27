@@ -191,9 +191,10 @@ export function detectCrossSourceCorrelations(items: NewsItem[]): Correlation[] 
 			}
 
 			if (relatedItems.length >= 3) {
+				const richTopic = buildCrossSourceTopic(keyword, relatedItems);
 				correlations.push({
 					id: generateId(),
-					topic: `Cross-source: "${keyword}"`,
+					topic: richTopic,
 					items: relatedItems.slice(0, 10),
 					severity: 'medium',
 					confidence: sourcesSet.size / sources.length,
@@ -541,5 +542,109 @@ const STOP_WORDS = new Set([
 	'told',
 	'statement',
 	'spokesman',
-	'spokesperson'
+	'spokesperson',
+	// URL/tech noise
+	'https',
+	'http',
+	'www',
+	'com',
+	'org',
+	'net',
+	'html',
+	'index',
+	'article',
+	'posts',
+	'update',
+	'updates',
+	'breaking',
+	'latest',
+	'watch',
+	'video',
+	'photos',
+	'click',
+	'share',
+	'subscribe',
+	'newsletter'
 ]);
+
+/**
+ * Extract proper nouns (entities) from headlines
+ * Finds capitalized words that aren't at sentence start
+ */
+function extractProperNouns(text: string): string[] {
+	const words = text.split(/\s+/);
+	const properNouns: string[] = [];
+
+	for (let i = 1; i < words.length; i++) {
+		const word = words[i].replace(/[^a-zA-Z]/g, '');
+		if (word.length >= 3 && /^[A-Z][a-z]+/.test(word)) {
+			if (!STOP_WORDS.has(word.toLowerCase())) {
+				properNouns.push(word);
+			}
+		}
+	}
+	return properNouns;
+}
+
+/**
+ * Build richer topic from keyword and related items
+ * Always returns at least 2 words for context
+ */
+function buildCrossSourceTopic(keyword: string, items: NewsItem[]): string {
+	const capitalizedKeyword = keyword.charAt(0).toUpperCase() + keyword.slice(1);
+
+	// Count proper nouns across all items
+	const nounCounts = new Map<string, number>();
+
+	for (const item of items) {
+		const nouns = extractProperNouns(item.title);
+		for (const noun of nouns) {
+			if (noun.toLowerCase() !== keyword) {
+				nounCounts.set(noun, (nounCounts.get(noun) || 0) + 1);
+			}
+		}
+	}
+
+	// Find most common proper noun (must appear in 2+ items)
+	let topEntity = '';
+	let topCount = 0;
+	for (const [noun, count] of nounCounts) {
+		if (count >= 2 && count > topCount) {
+			topEntity = noun;
+			topCount = count;
+		}
+	}
+
+	// If found a top entity, combine with keyword
+	if (topEntity) {
+		return `${topEntity} ${capitalizedKeyword}`;
+	}
+
+	// Fallback: find ANY proper noun from the first few items
+	for (const item of items.slice(0, 3)) {
+		const nouns = extractProperNouns(item.title);
+		if (nouns.length > 0 && nouns[0].toLowerCase() !== keyword) {
+			return `${nouns[0]} ${capitalizedKeyword}`;
+		}
+	}
+
+	// Last resort: extract a context word from headlines
+	// Look for capitalized words at start of headlines too
+	for (const item of items.slice(0, 3)) {
+		const words = item.title.split(/\s+/);
+		for (const word of words) {
+			const cleaned = word.replace(/[^a-zA-Z]/g, '');
+			if (
+				cleaned.length >= 4 &&
+				/^[A-Z][a-z]+/.test(cleaned) &&
+				cleaned.toLowerCase() !== keyword &&
+				!STOP_WORDS.has(cleaned.toLowerCase())
+			) {
+				return `${cleaned} ${capitalizedKeyword}`;
+			}
+		}
+	}
+
+	// Absolute fallback: use "Global" as generic context
+	return `Global ${capitalizedKeyword}`;
+}

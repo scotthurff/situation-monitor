@@ -84,6 +84,36 @@ const COMMON_WORDS = new Set([
 ]);
 
 /**
+ * Known person names for phrase ordering (person names come first)
+ */
+const KNOWN_PERSONS = new Set([
+	'trump', 'biden', 'obama', 'putin', 'xi', 'jinping', 'zelensky', 'netanyahu',
+	'macron', 'scholz', 'sunak', 'trudeau', 'modi', 'kim', 'jong', 'musk', 'bezos',
+	'zuckerberg', 'altman', 'cook', 'nadella', 'pichai', 'powell', 'yellen'
+]);
+
+/**
+ * Known organizations for phrase ordering (after persons, before locations)
+ */
+const KNOWN_ORGS = new Set([
+	'fed', 'federal', 'reserve', 'nato', 'who', 'imf', 'ecb', 'opec', 'sec', 'fbi',
+	'cia', 'nsa', 'doj', 'dhs', 'pentagon', 'congress', 'senate', 'house', 'scotus',
+	'google', 'apple', 'microsoft', 'amazon', 'meta', 'openai', 'anthropic', 'tesla',
+	'spacex', 'nvidia', 'intel', 'tsmc', 'samsung', 'huawei', 'tiktok', 'twitter'
+]);
+
+/**
+ * Known locations for phrase ordering (after orgs, before topics)
+ */
+const KNOWN_LOCATIONS = new Set([
+	'china', 'chinese', 'russia', 'russian', 'ukraine', 'ukrainian', 'taiwan',
+	'iran', 'iranian', 'israel', 'israeli', 'gaza', 'palestinian', 'korea', 'korean',
+	'japan', 'japanese', 'india', 'indian', 'europe', 'european', 'germany', 'german',
+	'france', 'french', 'britain', 'british', 'canada', 'canadian', 'mexico', 'mexican',
+	'brazil', 'brazilian', 'middle', 'east', 'asia', 'pacific', 'africa', 'african'
+]);
+
+/**
  * Context words that add meaning when paired with proper nouns
  * These help form more descriptive topic names like "Trump Tariffs" or "China Trade"
  */
@@ -201,6 +231,289 @@ function extractPhrases(title: string): string[] {
 }
 
 /**
+ * Get phrase type for ordering (person > org > location > topic)
+ */
+function getPhraseType(phrase: string): 'person' | 'org' | 'location' | 'topic' {
+	const words = phrase.toLowerCase().split(' ');
+	for (const word of words) {
+		if (KNOWN_PERSONS.has(word)) return 'person';
+	}
+	for (const word of words) {
+		if (KNOWN_ORGS.has(word)) return 'org';
+	}
+	for (const word of words) {
+		if (KNOWN_LOCATIONS.has(word)) return 'location';
+	}
+	return 'topic';
+}
+
+/**
+ * Order phrases for natural reading: person → org → location → topic
+ */
+function orderPhrases(phrases: string[]): string[] {
+	const typeOrder = { person: 0, org: 1, location: 2, topic: 3 };
+	return [...phrases].sort((a, b) => {
+		const typeA = getPhraseType(a);
+		const typeB = getPhraseType(b);
+		return typeOrder[typeA] - typeOrder[typeB];
+	});
+}
+
+/**
+ * Combine related phrases into a richer topic name
+ * Limits to 3-4 words for readability
+ */
+function combinePhrases(phrases: string[]): string {
+	if (phrases.length === 0) return '';
+	if (phrases.length === 1) return phrases[0];
+
+	// Order by type for natural reading
+	const ordered = orderPhrases(phrases);
+
+	// Combine, avoiding redundant words
+	const usedWords = new Set<string>();
+	const resultParts: string[] = [];
+
+	for (const phrase of ordered) {
+		const words = phrase.split(' ');
+		const newWords = words.filter(w => !usedWords.has(w.toLowerCase()));
+
+		if (newWords.length > 0) {
+			resultParts.push(newWords.join(' '));
+			newWords.forEach(w => usedWords.add(w.toLowerCase()));
+		}
+
+		// Limit total words to 4
+		if (usedWords.size >= 4) break;
+	}
+
+	return resultParts.join(' ');
+}
+
+/**
+ * Find phrase clusters with high co-occurrence (appear in same articles)
+ * Returns groups of related phrases that should be combined
+ */
+function findPhraseClusters(
+	phraseData: Map<string, {
+		displayName: string;
+		mentions: number;
+		sources: Set<string>;
+		tiers: Set<'fringe' | 'alternative' | 'mainstream'>;
+		firstSeen: Date;
+		lastSeen: Date;
+		items: NewsItem[];
+	}>
+): Map<string, Set<string>> {
+	// Build article sets for each phrase
+	const phraseArticles = new Map<string, Set<string>>();
+	for (const [key, data] of phraseData) {
+		phraseArticles.set(key, new Set(data.items.map(item => item.id)));
+	}
+
+	// Find phrases with high overlap (>50% of smaller set)
+	const clusters = new Map<string, Set<string>>();
+	const phraseKeys = Array.from(phraseData.keys());
+
+	for (let i = 0; i < phraseKeys.length; i++) {
+		const keyA = phraseKeys[i];
+		const articlesA = phraseArticles.get(keyA)!;
+		if (articlesA.size < 2) continue; // Need at least 2 articles
+
+		for (let j = i + 1; j < phraseKeys.length; j++) {
+			const keyB = phraseKeys[j];
+			const articlesB = phraseArticles.get(keyB)!;
+			if (articlesB.size < 2) continue;
+
+			// Calculate overlap
+			const intersection = new Set([...articlesA].filter(x => articlesB.has(x)));
+			const smallerSize = Math.min(articlesA.size, articlesB.size);
+			const overlapRatio = intersection.size / smallerSize;
+
+			// High overlap = related phrases (40% threshold to catch more stable narrative combinations)
+			if (overlapRatio >= 0.4 && intersection.size >= 2) {
+				// Add to cluster
+				if (!clusters.has(keyA)) clusters.set(keyA, new Set([keyA]));
+				if (!clusters.has(keyB)) clusters.set(keyB, new Set([keyB]));
+				clusters.get(keyA)!.add(keyB);
+				clusters.get(keyB)!.add(keyA);
+			}
+		}
+	}
+
+	return clusters;
+}
+
+/**
+ * Merge clustered phrases into combined narratives
+ */
+function mergeClusteredPhrases(
+	phraseData: Map<string, {
+		displayName: string;
+		mentions: number;
+		sources: Set<string>;
+		tiers: Set<'fringe' | 'alternative' | 'mainstream'>;
+		firstSeen: Date;
+		lastSeen: Date;
+		items: NewsItem[];
+	}>,
+	clusters: Map<string, Set<string>>
+): Map<string, {
+	displayName: string;
+	mentions: number;
+	sources: Set<string>;
+	tiers: Set<'fringe' | 'alternative' | 'mainstream'>;
+	firstSeen: Date;
+	lastSeen: Date;
+	items: NewsItem[];
+}> {
+	// Track which phrases have been merged
+	const merged = new Set<string>();
+	const result = new Map<string, typeof phraseData extends Map<string, infer V> ? V : never>();
+
+	// Process clusters - merge related phrases
+	for (const [key, relatedKeys] of clusters) {
+		if (merged.has(key)) continue;
+		if (relatedKeys.size <= 1) continue; // No cluster
+
+		// Get all phrases in this cluster
+		const clusterPhrases = Array.from(relatedKeys)
+			.filter(k => phraseData.has(k) && !merged.has(k))
+			.map(k => ({ key: k, data: phraseData.get(k)! }))
+			.sort((a, b) => b.data.mentions - a.data.mentions); // Sort by mentions
+
+		if (clusterPhrases.length < 2) continue;
+
+		// Take top 3 phrases by mentions
+		const topPhrases = clusterPhrases.slice(0, 3);
+		const displayNames = topPhrases.map(p => p.data.displayName);
+
+		// Create combined topic
+		const combinedTopic = combinePhrases(displayNames);
+
+		// Merge data from all phrases in cluster
+		const allSources = new Set<string>();
+		const allTiers = new Set<'fringe' | 'alternative' | 'mainstream'>();
+		const allItems: NewsItem[] = [];
+		let firstSeen = topPhrases[0].data.firstSeen;
+		let lastSeen = topPhrases[0].data.lastSeen;
+		let totalMentions = 0;
+
+		for (const { key: pKey, data } of topPhrases) {
+			data.sources.forEach(s => allSources.add(s));
+			data.tiers.forEach(t => allTiers.add(t));
+			allItems.push(...data.items);
+			if (data.firstSeen < firstSeen) firstSeen = data.firstSeen;
+			if (data.lastSeen > lastSeen) lastSeen = data.lastSeen;
+			totalMentions += data.mentions;
+			merged.add(pKey);
+		}
+
+		// Dedupe items
+		const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+
+		result.set(combinedTopic.toLowerCase(), {
+			displayName: combinedTopic,
+			mentions: totalMentions,
+			sources: allSources,
+			tiers: allTiers,
+			firstSeen,
+			lastSeen,
+			items: uniqueItems
+		});
+	}
+
+	// Add non-clustered phrases
+	for (const [key, data] of phraseData) {
+		if (!merged.has(key)) {
+			result.set(key, data);
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Enrich single-word topics with context from headlines
+ * Ensures all topics have at least 2 words for better context
+ */
+function enrichSingleWordTopic(topic: string, items: NewsItem[]): string {
+	// If already multi-word, return as-is
+	if (topic.includes(' ')) {
+		return topic;
+	}
+
+	const topicLower = topic.toLowerCase();
+
+	// Try to find a context word from headlines
+	for (const item of items.slice(0, 5)) {
+		const words = item.title.split(/\s+/);
+
+		// Find the topic word position
+		const topicIndex = words.findIndex(
+			(w) => w.toLowerCase().replace(/[^a-z]/g, '') === topicLower
+		);
+
+		if (topicIndex !== -1) {
+			// Look for adjacent meaningful words
+			// Check word after topic
+			if (topicIndex + 1 < words.length) {
+				const nextWord = words[topicIndex + 1].replace(/[^a-zA-Z]/g, '');
+				if (nextWord.length >= 3 && !COMMON_WORDS.has(nextWord.toLowerCase())) {
+					return `${topic} ${nextWord}`;
+				}
+			}
+
+			// Check word before topic
+			if (topicIndex > 0) {
+				const prevWord = words[topicIndex - 1].replace(/[^a-zA-Z]/g, '');
+				if (prevWord.length >= 3 && !COMMON_WORDS.has(prevWord.toLowerCase())) {
+					return `${prevWord} ${topic}`;
+				}
+			}
+		}
+	}
+
+	// Fallback: find any proper noun in headlines that's not the topic
+	for (const item of items.slice(0, 3)) {
+		const words = item.title.split(/\s+/);
+		for (let i = 1; i < words.length; i++) {
+			const word = words[i].replace(/[^a-zA-Z]/g, '');
+			if (
+				word.length >= 4 &&
+				/^[A-Z][a-z]+/.test(word) &&
+				word.toLowerCase() !== topicLower &&
+				!COMMON_WORDS.has(word.toLowerCase())
+			) {
+				// Determine order based on phrase type
+				const topicType = getPhraseType(topic);
+				const contextType = getPhraseType(word);
+				const typeOrder = { person: 0, org: 1, location: 2, topic: 3 };
+
+				if (typeOrder[contextType] < typeOrder[topicType]) {
+					return `${word} ${topic}`;
+				} else {
+					return `${topic} ${word}`;
+				}
+			}
+		}
+	}
+
+	// Last resort: add category based on phrase type
+	const phraseType = getPhraseType(topic);
+	switch (phraseType) {
+		case 'person':
+			return `${topic} News`;
+		case 'org':
+			return `${topic} Update`;
+		case 'location':
+			return `${topic} Developments`;
+		default:
+			return `${topic} Story`;
+	}
+}
+
+/**
  * Track narratives across news items
  */
 export function trackNarratives(items: NewsItem[], minMentions = 2): Narrative[] {
@@ -253,10 +566,14 @@ export function trackNarratives(items: NewsItem[], minMentions = 2): Narrative[]
 		}
 	}
 
+	// Find and merge clustered phrases for richer topics
+	const clusters = findPhraseClusters(phraseData);
+	const mergedPhraseData = mergeClusteredPhrases(phraseData, clusters);
+
 	// Convert to narratives
 	const narratives: Narrative[] = [];
 
-	for (const [key, data] of phraseData) {
+	for (const [key, data] of mergedPhraseData) {
 		if (data.mentions < minMentions) continue;
 		if (data.sources.size < 2) continue; // Require multiple sources
 
@@ -291,9 +608,12 @@ export function trackNarratives(items: NewsItem[], minMentions = 2): Narrative[]
 			.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())
 			.slice(0, 10);
 
+		// Ensure topic has at least 2 words for better context
+		const enrichedTopic = enrichSingleWordTopic(data.displayName, sortedItems);
+
 		narratives.push({
 			id: generateId(),
-			topic: data.displayName,
+			topic: enrichedTopic,
 			stage,
 			mentions: data.mentions,
 			sources: Array.from(data.sources),
