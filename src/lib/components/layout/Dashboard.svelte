@@ -89,6 +89,11 @@
 					<NarrativePanel />
 				</div>
 
+				<!-- Pattern Analysis - Related patterns across sources -->
+				<div class="panel-item">
+					<CorrelationPanel />
+				</div>
+
 				<!-- Alerts - Breaking alerts -->
 				<div class="panel-item">
 					<AlertsPanel />
@@ -121,11 +126,6 @@
 				<!-- Main Character - Who's trending -->
 				<div class="panel-item">
 					<MainCharacterPanel />
-				</div>
-
-				<!-- Correlation - Pattern analysis -->
-				<div class="panel-item">
-					<CorrelationPanel />
 				</div>
 
 				<!-- Custom Monitors - User-defined alerts -->
