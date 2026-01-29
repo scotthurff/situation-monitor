@@ -35,10 +35,10 @@
 			<h3 class="news-title line-clamp-2">
 				{item.title}
 			</h3>
-			<div class="flex items-center gap-2 mt-1">
+			<div class="news-meta">
 				<span class="news-time" style="color: {getTimestampColor(item.pubDate)}">{formatRelativeTime(item.pubDate)}</span>
 				{#if item.regions && item.regions.length > 0}
-					<span class="text-xs text-muted/70">
+					<span class="news-region">
 						{item.regions.slice(0, 2).join(', ')}
 					</span>
 				{/if}
@@ -80,11 +80,24 @@
 		color: var(--accent);
 	}
 
+	.news-meta {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		margin-top: 0.25rem;
+	}
+
 	.news-time {
 		font-size: 0.65rem;
 		color: var(--text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+	}
+
+	.news-region {
+		font-size: 0.65rem;
+		color: var(--text-muted);
+		opacity: 0.7;
 	}
 
 	.badge {

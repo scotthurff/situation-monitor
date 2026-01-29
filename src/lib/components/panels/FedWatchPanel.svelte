@@ -210,7 +210,7 @@
 		padding: 0.25rem 0.5rem;
 		background: rgba(255, 255, 255, 0.02);
 		border-radius: 0.25rem;
-		font-size: 0.75rem;
+		font-size: 0.7rem;
 	}
 
 	.meeting-item.recent {
