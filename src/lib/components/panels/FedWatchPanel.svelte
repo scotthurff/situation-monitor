@@ -1,55 +1,15 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { Panel } from '$lib/components/common';
+	import { fetchFedWatchData } from '$lib/api/fed';
+	import type { FedFundsData, BalanceSheetData, FOMCMeeting } from '$lib/api/fed';
 
-	interface FOMCMeeting {
-		date: string;
-		type: 'scheduled' | 'concluded';
-		decision?: 'hike' | 'cut' | 'hold';
-		rateChange?: number;
-		newRate?: number;
-		hasProjections: boolean;
-	}
+	let fedFunds = $state<FedFundsData | null>(null);
+	let balanceSheet = $state<BalanceSheetData | null>(null);
+	let upcomingMeetings = $state<FOMCMeeting[]>([]);
+	let recentMeetings = $state<FOMCMeeting[]>([]);
 
-	interface BalanceSheetData {
-		date: string;
-		totalAssets: number;
-		weeklyChange: number;
-		treasuries: number;
-		mbs: number;
-	}
-
-	// Mock data
-	let fedFundsRate = $state(5.33);
-	let fedFundsTarget = $state({ lower: 5.25, upper: 5.50 });
-
-	let balanceSheet = $state<BalanceSheetData>({
-		date: 'Jan 15, 2025',
-		totalAssets: 6.89,
-		weeklyChange: -28.5,
-		treasuries: 4.31,
-		mbs: 2.24
-	});
-
-	let upcomingMeetings = $state<FOMCMeeting[]>([
-		{ date: 'Jan 28-29, 2025', type: 'scheduled', hasProjections: false },
-		{ date: 'Mar 18-19, 2025', type: 'scheduled', hasProjections: true },
-		{ date: 'May 6-7, 2025', type: 'scheduled', hasProjections: false },
-		{ date: 'Jun 17-18, 2025', type: 'scheduled', hasProjections: true }
-	]);
-
-	let recentMeetings = $state<FOMCMeeting[]>([
-		{ date: 'Dec 17-18, 2024', type: 'concluded', decision: 'cut', rateChange: -0.25, newRate: 4.375, hasProjections: true },
-		{ date: 'Nov 6-7, 2024', type: 'concluded', decision: 'cut', rateChange: -0.25, newRate: 4.625, hasProjections: false },
-		{ date: 'Sep 17-18, 2024', type: 'concluded', decision: 'cut', rateChange: -0.50, newRate: 4.875, hasProjections: true }
-	]);
-
-	// Market expectations (mock Fed Funds futures implied probabilities)
-	let marketExpectations = $state({
-		nextMeeting: { hold: 97, cut25: 3, cut50: 0 },
-		yearEnd: { rateExpected: 4.00, cutsExpected: 2 }
-	});
-
-	let isLoading = $state(false);
+	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	function formatTrillion(value: number): string {
@@ -60,72 +20,119 @@
 		const sign = value >= 0 ? '+' : '';
 		return sign + '$' + Math.abs(value).toFixed(1) + 'B';
 	}
+
+	function formatRate(rate: number): string {
+		return rate.toFixed(2) + '%';
+	}
+
+	function getDecisionClass(decision: string | undefined): string {
+		if (decision === 'cut') return 'decision-cut';
+		if (decision === 'hike') return 'decision-hike';
+		return 'decision-hold';
+	}
+
+	function getDecisionText(meeting: FOMCMeeting): string {
+		if (!meeting.decision) return '';
+		if (meeting.decision === 'cut') return `Cut ${Math.abs(meeting.rateChange || 0) * 100}bp`;
+		if (meeting.decision === 'hike') return `Hike ${Math.abs(meeting.rateChange || 0) * 100}bp`;
+		return 'Hold';
+	}
+
+	async function loadData() {
+		isLoading = true;
+		error = null;
+		try {
+			const data = await fetchFedWatchData();
+			fedFunds = data.fedFunds;
+			balanceSheet = data.balanceSheet;
+			upcomingMeetings = data.meetings.upcoming;
+			recentMeetings = data.meetings.recent;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load Fed data';
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	onMount(() => {
+		loadData();
+	});
 </script>
 
 <Panel title="Fed Watch" icon="🏦" loading={isLoading} {error}>
-	<!-- Current Rate -->
-	<div class="rate-section">
-		<div class="rate-current">
-			<div class="rate-label">Fed Funds Target</div>
-			<div class="rate-value">{fedFundsTarget.lower.toFixed(2)}% - {fedFundsTarget.upper.toFixed(2)}%</div>
-		</div>
-		<div class="rate-effective">
-			<div class="rate-label">Effective Rate</div>
-			<div class="rate-value">{fedFundsRate.toFixed(2)}%</div>
-		</div>
-	</div>
-
-	<!-- Market Expectations -->
-	<div class="expectations-section mt-3 pt-3 border-t border-border">
-		<div class="text-xs text-muted mb-2">Market Expectations (Next Meeting)</div>
-		<div class="expectations-bar">
-			<div class="expectation hold" style="width: {marketExpectations.nextMeeting.hold}%">
-				{marketExpectations.nextMeeting.hold}% Hold
-			</div>
-			{#if marketExpectations.nextMeeting.cut25 > 0}
-				<div class="expectation cut" style="width: {marketExpectations.nextMeeting.cut25}%">
-					{marketExpectations.nextMeeting.cut25}% Cut
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<!-- Balance Sheet -->
-	<div class="balance-section mt-3 pt-3 border-t border-border">
-		<div class="text-xs text-muted mb-2">Fed Balance Sheet</div>
-		<div class="balance-grid">
-			<div class="balance-item">
-				<div class="balance-label">Total Assets</div>
-				<div class="balance-value">{formatTrillion(balanceSheet.totalAssets)}</div>
-				<div class="balance-change" class:negative={balanceSheet.weeklyChange < 0}>
-					{formatBillion(balanceSheet.weeklyChange)}/wk
+	{#if fedFunds}
+		<!-- Current Rate -->
+		<div class="rate-section">
+			<div class="rate-current">
+				<div class="rate-label">Fed Funds Target</div>
+				<div class="rate-value">
+					{formatRate(fedFunds.targetLower)} - {formatRate(fedFunds.targetUpper)}
 				</div>
 			</div>
-			<div class="balance-item">
-				<div class="balance-label">Treasuries</div>
-				<div class="balance-value">{formatTrillion(balanceSheet.treasuries)}</div>
-			</div>
-			<div class="balance-item">
-				<div class="balance-label">MBS</div>
-				<div class="balance-value">{formatTrillion(balanceSheet.mbs)}</div>
+			<div class="rate-effective">
+				<div class="rate-label">Effective Rate</div>
+				<div class="rate-value">{formatRate(fedFunds.effectiveRate)}</div>
 			</div>
 		</div>
-	</div>
+	{/if}
+
+	{#if balanceSheet}
+		<!-- Balance Sheet -->
+		<div class="balance-section mt-3 pt-3 border-t border-border">
+			<div class="text-xs text-muted mb-2">Fed Balance Sheet</div>
+			<div class="balance-grid">
+				<div class="balance-item">
+					<div class="balance-label">Total Assets</div>
+					<div class="balance-value">{formatTrillion(balanceSheet.totalAssets)}</div>
+					<div class="balance-change" class:negative={balanceSheet.weeklyChange < 0}>
+						{formatBillion(balanceSheet.weeklyChange)}/wk
+					</div>
+				</div>
+				<div class="balance-item">
+					<div class="balance-label">Treasuries</div>
+					<div class="balance-value">{formatTrillion(balanceSheet.treasuries)}</div>
+				</div>
+				<div class="balance-item">
+					<div class="balance-label">MBS</div>
+					<div class="balance-value">{formatTrillion(balanceSheet.mbs)}</div>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Upcoming Meetings -->
-	<div class="meetings-section mt-3 pt-3 border-t border-border">
-		<div class="text-xs text-muted mb-2">Upcoming FOMC Meetings</div>
-		<div class="meetings-list">
-			{#each upcomingMeetings.slice(0, 3) as meeting}
-				<div class="meeting-item">
-					<span class="meeting-date">{meeting.date}</span>
-					{#if meeting.hasProjections}
-						<span class="meeting-projections">+ SEP</span>
-					{/if}
-				</div>
-			{/each}
+	{#if upcomingMeetings.length > 0}
+		<div class="meetings-section mt-3 pt-3 border-t border-border">
+			<div class="text-xs text-muted mb-2">Upcoming FOMC Meetings</div>
+			<div class="meetings-list">
+				{#each upcomingMeetings as meeting}
+					<div class="meeting-item">
+						<span class="meeting-date">{meeting.date}</span>
+						{#if meeting.hasProjections}
+							<span class="meeting-projections">+ SEP</span>
+						{/if}
+					</div>
+				{/each}
+			</div>
 		</div>
-	</div>
+	{/if}
+
+	<!-- Recent Decisions -->
+	{#if recentMeetings.length > 0}
+		<div class="recent-section mt-3 pt-3 border-t border-border">
+			<div class="text-xs text-muted mb-2">Recent Decisions</div>
+			<div class="meetings-list">
+				{#each recentMeetings as meeting}
+					<div class="meeting-item recent">
+						<span class="meeting-date">{meeting.date}</span>
+						<span class="meeting-decision {getDecisionClass(meeting.decision)}">
+							{getDecisionText(meeting)}
+						</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 </Panel>
 
 <style>
@@ -151,35 +158,11 @@
 	}
 
 	.rate-value {
-		font-size: 1.125rem;
+		font-size: 0.875rem;
 		font-weight: 600;
 		color: var(--text-primary);
 		font-family: 'JetBrains Mono', monospace;
-	}
-
-	.expectations-bar {
-		display: flex;
-		height: 24px;
-		border-radius: 0.25rem;
-		overflow: hidden;
-	}
-
-	.expectation {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.6rem;
-		font-weight: 600;
-	}
-
-	.expectation.hold {
-		background: rgba(255, 255, 255, 0.1);
-		color: var(--text-secondary);
-	}
-
-	.expectation.cut {
-		background: #2ed573;
-		color: #000;
+		white-space: nowrap;
 	}
 
 	.balance-grid {
@@ -230,6 +213,17 @@
 		font-size: 0.75rem;
 	}
 
+	.meeting-item.recent {
+		background: transparent;
+		border-bottom: 1px solid var(--border);
+		border-radius: 0;
+		padding: 0.25rem 0;
+	}
+
+	.meeting-item.recent:last-child {
+		border-bottom: none;
+	}
+
 	.meeting-date {
 		color: var(--text-primary);
 	}
@@ -237,8 +231,30 @@
 	.meeting-projections {
 		font-size: 0.6rem;
 		padding: 0.125rem 0.25rem;
-		background: var(--accent)/20;
-		color: var(--accent);
+		background: rgba(68, 136, 255, 0.2);
+		color: var(--blue);
 		border-radius: 0.125rem;
+	}
+
+	.meeting-decision {
+		font-size: 0.6rem;
+		padding: 0.125rem 0.35rem;
+		border-radius: 0.125rem;
+		font-weight: 600;
+	}
+
+	.decision-cut {
+		background: rgba(46, 213, 115, 0.2);
+		color: #2ed573;
+	}
+
+	.decision-hike {
+		background: rgba(255, 71, 87, 0.2);
+		color: #ff4757;
+	}
+
+	.decision-hold {
+		background: rgba(255, 255, 255, 0.1);
+		color: var(--text-muted);
 	}
 </style>

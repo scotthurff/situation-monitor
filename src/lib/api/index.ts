@@ -55,6 +55,21 @@ export { fetchLayoffs, getMockLayoffs } from './layoffs';
 export { extractEntities, fetchMainCharacters, getMockCharacters } from './entities';
 
 export {
+	fetchEconomicCalendar,
+	fetchFredReleases,
+	fetchCombinedCalendar
+} from './calendar';
+export type { EconomicEvent } from './calendar';
+
+export {
+	fetchFedFundsRate,
+	fetchBalanceSheet,
+	getFOMCSchedule,
+	fetchFedWatchData
+} from './fed';
+export type { FedFundsData, BalanceSheetData, FOMCMeeting } from './fed';
+
+export {
 	fetchWeatherMaps,
 	getLatestSatelliteFrame,
 	getLatestRadarFrame,

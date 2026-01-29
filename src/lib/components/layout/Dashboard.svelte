@@ -25,7 +25,10 @@
 		CorrelationPanel,
 		NarrativePanel,
 		SituationWatchPanel,
-		CustomMonitorsPanel
+		CustomMonitorsPanel,
+		// Economic panels
+		FedWatchPanel,
+		EconomicCalendarPanel
 	} from '$lib/components/panels';
 	import {
 		MobileNewsView,
@@ -164,6 +167,14 @@
 
 				<div class="panel-item">
 					<SectorHeatmapPanel />
+				</div>
+
+				<div class="panel-item">
+					<FedWatchPanel />
+				</div>
+
+				<div class="panel-item">
+					<EconomicCalendarPanel />
 				</div>
 
 				<!-- ═══════════════════════════════════════════════════════════
