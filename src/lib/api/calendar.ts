@@ -4,7 +4,7 @@
  * Fetches upcoming economic events and data releases.
  */
 
-import { FINNHUB_API_KEY, FRED_API_KEY, API_URLS, logger } from '$lib/config';
+import { FINNHUB_API_KEY, FRED_API_KEY, API_URLS, logger, fetchWithProxy } from '$lib/config';
 import { rateLimiters } from '$lib/services';
 
 export interface EconomicEvent {
@@ -100,7 +100,7 @@ export async function fetchEconomicCalendar(): Promise<EconomicEvent[]> {
 		const toStr = endDate.toISOString().split('T')[0];
 
 		const url = `https://finnhub.io/api/v1/calendar/economic?from=${fromStr}&to=${toStr}&token=${FINNHUB_API_KEY}`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
@@ -169,9 +169,9 @@ export async function fetchFredReleases(): Promise<EconomicEvent[]> {
 		const startStr = today.toISOString().split('T')[0];
 		const endStr = endDate.toISOString().split('T')[0];
 
-		const url = `${API_URLS.fred}/releases/dates?api_key=${FRED_API_KEY}&file_type=json&include_release_dates_with_no_data=true&realtime_start=${startStr}&realtime_end=${endStr}&limit=100`;
+		const url = `${API_URLS.fred}/releases/dates?api_key=${FRED_API_KEY}&file_type=json&include_release_dates_with_no_data=true&realtime_start=${startStr}&realtime_end=${endStr}&sort_order=asc&limit=200`;
 
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
@@ -180,8 +180,11 @@ export async function fetchFredReleases(): Promise<EconomicEvent[]> {
 		const data: FredReleasesResponse = await response.json();
 
 		if (!data.release_dates || !Array.isArray(data.release_dates)) {
+			logger.log('Calendar API', 'No release_dates in FRED response');
 			return [];
 		}
+
+		logger.log('Calendar API', `FRED returned ${data.release_dates.length} total releases`);
 
 		// Map important releases to events
 		const importantReleases = new Set([

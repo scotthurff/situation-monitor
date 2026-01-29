@@ -39,9 +39,9 @@
 	};
 
 	const importanceDots: Record<string, string> = {
-		high: 'bg-danger',
-		medium: 'bg-warning',
-		low: 'bg-muted'
+		high: 'dot-high',
+		medium: 'dot-medium',
+		low: 'dot-low'
 	};
 
 	function isEventPast(event: EconomicEvent): boolean {
@@ -66,12 +66,12 @@
 </script>
 
 {#snippet header()}
-	<div class="flex items-center gap-2 text-xs">
-		<span class="flex items-center gap-1">
-			<span class="w-2 h-2 rounded-full bg-danger"></span> High
+	<div class="legend">
+		<span class="legend-item">
+			<span class="importance-dot dot-high"></span> High
 		</span>
-		<span class="flex items-center gap-1">
-			<span class="w-2 h-2 rounded-full bg-warning"></span> Medium
+		<span class="legend-item">
+			<span class="importance-dot dot-medium"></span> Medium
 		</span>
 	</div>
 {/snippet}
@@ -158,16 +158,29 @@
 
 	.calendar-left {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
 		gap: 0.375rem;
 		flex-shrink: 0;
 	}
 
 	.importance-dot {
+		display: inline-block;
 		width: 6px;
 		height: 6px;
 		border-radius: 50%;
-		margin-top: 0.375rem;
+		flex-shrink: 0;
+	}
+
+	.importance-dot.dot-high {
+		background: var(--red, #ff4757);
+	}
+
+	.importance-dot.dot-medium {
+		background: var(--yellow, #ffa502);
+	}
+
+	.importance-dot.dot-low {
+		background: var(--text-muted, #666);
 	}
 
 	.calendar-time {
@@ -207,6 +220,22 @@
 	.calendar-actual {
 		color: var(--accent);
 		font-weight: 600;
+	}
+
+	.legend {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.65rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
 	}
 
 	.empty-state {

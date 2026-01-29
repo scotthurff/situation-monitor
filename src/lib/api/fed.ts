@@ -4,7 +4,7 @@
  * Fetches Fed Funds rate, balance sheet, and FOMC meeting info.
  */
 
-import { FRED_API_KEY, API_URLS, logger } from '$lib/config';
+import { FRED_API_KEY, API_URLS, logger, fetchWithProxy } from '$lib/config';
 import { rateLimiters } from '$lib/services';
 
 export interface FedFundsData {
@@ -62,7 +62,7 @@ async function fetchFredSeries(seriesId: string, limit = 2): Promise<FredObserva
 		await rateLimiters.fred.throttle();
 
 		const url = `${API_URLS.fred}/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=${limit}`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
