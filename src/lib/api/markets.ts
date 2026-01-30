@@ -3,7 +3,7 @@
  */
 
 import { marketClient } from '$lib/services';
-import { INDICES, STOCKS, COMMODITIES, FOREX, API_URLS, FINNHUB_API_KEY, logger } from '$lib/config';
+import { INDICES, STOCKS, COMMODITIES, FOREX, API_URLS, FINNHUB_API_KEY, logger, fetchWithProxy } from '$lib/config';
 import type { MarketData, CommodityData } from '$lib/types';
 
 /**
@@ -45,7 +45,7 @@ async function fetchYahooQuote(symbol: string): Promise<MarketData | null> {
 		// Yahoo Finance v8 API
 		const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`;
 
-		const response = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`);
+		const response = await fetchWithProxy(url);
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
 		}
@@ -94,7 +94,7 @@ async function fetchFinnhubQuote(symbol: string): Promise<MarketData | null> {
 
 	try {
 		const url = `${API_URLS.finnhub}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);

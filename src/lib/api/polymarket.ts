@@ -158,7 +158,7 @@ async function fetchFromKalshi(): Promise<Prediction[]> {
 	try {
 		// Kalshi public API
 		const url = `${API_URLS.kalshi}/markets?limit=20&status=open`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);

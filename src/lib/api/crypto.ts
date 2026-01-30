@@ -3,7 +3,7 @@
  */
 
 import { cryptoClient } from '$lib/services';
-import { CRYPTO_IDS, API_URLS, logger } from '$lib/config';
+import { CRYPTO_IDS, API_URLS, logger, fetchWithProxy } from '$lib/config';
 import type { CryptoData } from '$lib/types';
 
 interface CoinGeckoMarket {
@@ -27,7 +27,7 @@ export async function fetchCryptoPrices(): Promise<CryptoData[]> {
 		const ids = CRYPTO_IDS.join(',');
 		const url = `${API_URLS.coingecko}/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=true`;
 
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
@@ -59,7 +59,7 @@ export async function fetchCoinDetails(id: string): Promise<CryptoData | null> {
 	try {
 		const url = `${API_URLS.coingecko}/coins/${id}?localization=false&tickers=false&community_data=false&developer_data=false`;
 
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
@@ -95,7 +95,7 @@ export async function fetchGlobalCryptoData(): Promise<{
 } | null> {
 	try {
 		const url = `${API_URLS.coingecko}/global`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
@@ -188,7 +188,7 @@ export async function fetchFearGreedIndex(): Promise<FearGreedIndex> {
 	try {
 		// Fetch current and yesterday's values
 		const url = `${API_URLS.feargreed}/?limit=2`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);

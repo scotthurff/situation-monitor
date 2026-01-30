@@ -5,7 +5,7 @@
  * Falls back to mock data if no API key is provided.
  */
 
-import { FINNHUB_API_KEY, API_URLS, logger } from '$lib/config';
+import { FINNHUB_API_KEY, API_URLS, logger, fetchWithProxy } from '$lib/config';
 import { rateLimiters } from '$lib/services';
 import type { SectorPerformance } from '$lib/types';
 
@@ -69,7 +69,7 @@ async function fetchFinnhubQuote(symbol: string): Promise<FinnhubQuote | null> {
 		await rateLimiters.finnhub.throttle();
 
 		const url = `${API_URLS.finnhub}/quote?symbol=${encodeURIComponent(symbol)}&token=${FINNHUB_API_KEY}`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);

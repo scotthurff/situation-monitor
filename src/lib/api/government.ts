@@ -333,7 +333,7 @@ export async function fetchCongressBills(): Promise<LegislativeBill[]> {
 		// Get recent bills
 		const url = `${API_URLS.congress}/bill?api_key=${CONGRESS_API_KEY}&limit=15&sort=updateDate%20desc&format=json`;
 
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);

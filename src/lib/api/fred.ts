@@ -5,7 +5,7 @@
  * Falls back to mock data if no API key is provided.
  */
 
-import { FRED_API_KEY, API_URLS, logger } from '$lib/config';
+import { FRED_API_KEY, API_URLS, logger, fetchWithProxy } from '$lib/config';
 import { rateLimiters } from '$lib/services';
 import type { EconomicIndicator, YieldCurvePoint } from '$lib/types';
 
@@ -117,7 +117,7 @@ async function fetchFredSeries(seriesId: string, limit: number = 2): Promise<Fre
 		await rateLimiters.fred.throttle();
 
 		const url = `${API_URLS.fred}/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&limit=${limit}&sort_order=desc`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -139,7 +139,7 @@ async function fetchFredSeriesForYoY(seriesId: string): Promise<FredObservation[
 		await rateLimiters.fred.throttle();
 
 		const url = `${API_URLS.fred}/series/observations?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&limit=14&sort_order=desc`;
-		const response = await fetch(url);
+		const response = await fetchWithProxy(url);
 
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
